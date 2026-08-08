@@ -1,0 +1,6 @@
+{
+  "name": "Pantauan Pemenangan Kandidat",
+  "description": "Aplikasi Pemantauan & Pemenangan Kandidat (Pilkada, Pileg, Pilkades) dengan AI Advisor, WhatsApp Integration, dan Supabase Database",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
