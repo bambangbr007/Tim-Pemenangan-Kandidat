@@ -145,6 +145,19 @@ create index commands_created_at_idx on public.commands (created_at desc);
 create index opponent_snapshot_idx on public.opponent_snapshots (opponent_name, snapshot_date desc);
 create index notifications_recipient_unread_idx on public.notifications (recipient_id, created_at desc) where read_at is null;
 create index audit_logs_actor_date_idx on public.audit_logs (actor_id, occurred_at desc);
+create index teams_created_by_idx on public.teams (created_by);
+create index profiles_team_id_idx on public.profiles (team_id);
+create index profiles_approved_by_idx on public.profiles (approved_by);
+create index campaign_settings_updated_by_idx on public.campaign_settings (updated_by);
+create index voters_created_by_idx on public.voters (created_by);
+create index voters_updated_by_idx on public.voters (updated_by);
+create index activities_assignee_id_idx on public.activities (assignee_id);
+create index activities_created_by_idx on public.activities (created_by);
+create index activities_updated_by_idx on public.activities (updated_by);
+create index field_reports_reporter_id_idx on public.field_reports (reporter_id);
+create index commands_created_by_idx on public.commands (created_by);
+create index opponent_snapshots_created_by_idx on public.opponent_snapshots (created_by);
+create index data_backups_created_by_idx on public.data_backups (created_by);
 
 create or replace function private.current_profile()
 returns public.profiles language sql stable security definer set search_path = '' as $$
