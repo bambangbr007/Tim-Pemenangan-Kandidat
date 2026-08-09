@@ -21,6 +21,7 @@ const state = {
 }
 let cameraStream = null
 let cameraTarget = null
+const capturedFiles = new Map()
 
 const esc = (value = '') => String(value).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]))
 const rupiah = n => new Intl.NumberFormat('id-ID').format(Number(n || 0))
@@ -72,7 +73,7 @@ function toast(message, type = '') {
 const isSessionError = error => /auth session missing|session.*missing|jwt.*expired|refresh token/i.test(String(error?.message || error || ''))
 
 function returnToLogin(message = 'Sesi Anda telah berakhir. Silakan masuk kembali.') {
-  stopCamera()
+  stopCamera(); capturedFiles.clear()
   if (state.realtime) { supabase.removeChannel(state.realtime); state.realtime = null }
   clearCampaignData(); state.strategy = null; state.session = null; state.profile = null
   document.querySelector('.modal-backdrop')?.remove(); document.querySelector('.menu-drawer-backdrop')?.remove()
@@ -443,12 +444,13 @@ async function captureCamera(target) {
   const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .84))
   if (!blob) return toast('Foto gagal diambil. Silakan coba lagi.', 'error')
   const file = new File([blob], `kamera-${target}-${Date.now()}.jpg`, { type: 'image/jpeg', lastModified: Date.now() })
-  const transfer = new DataTransfer(); transfer.items.add(file); input.files = transfer.files
-  stopCamera(); input.dispatchEvent(new Event('change', { bubbles: true })); toast('Foto berhasil diambil dan siap dikirim.')
+  capturedFiles.set(target, file)
+  try { const transfer = new DataTransfer(); transfer.items.add(file); input.files = transfer.files } catch { /* Safari lama: gunakan file dari memori */ }
+  stopCamera(); updateImagePreview(input, file); toast('Foto berhasil diambil dan siap dikirim.')
 }
 
-function updateImagePreview(input) {
-  const file = input.files?.[0], preview = document.querySelector(`#${input.id}-preview`)
+function updateImagePreview(input, capturedFile = null) {
+  const file = capturedFile || input.files?.[0], preview = document.querySelector(`#${input.id}-preview`)
   if (!preview) return
   if (!file) { preview.classList.add('hidden'); preview.innerHTML = ''; return }
   const url = URL.createObjectURL(file)
@@ -522,10 +524,10 @@ async function save(table, payload, id, button) {
 document.addEventListener('click', async e => {
   const el = e.target.closest('[data-action],[data-page],[data-auth-tab]'); if (!el) return
   if (el.dataset.authTab) return authScreen(el.dataset.authTab)
-  if (el.dataset.page) { stopCamera(); state.page = el.dataset.page; el.closest('.modal-backdrop')?.remove(); document.querySelector('.menu-drawer-backdrop')?.remove(); renderPage(); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
+  if (el.dataset.page) { stopCamera(); capturedFiles.clear(); state.page = el.dataset.page; el.closest('.modal-backdrop')?.remove(); document.querySelector('.menu-drawer-backdrop')?.remove(); renderPage(); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
   const action = el.dataset.action
   try {
-    if (action === 'close-modal') { stopCamera(); el.closest('.modal-backdrop')?.remove() }
+    if (action === 'close-modal') { stopCamera(); capturedFiles.clear(); el.closest('.modal-backdrop')?.remove() }
     if (action === 'open-menu') openMenuDrawer()
     if (action === 'close-menu') document.querySelector('.menu-drawer-backdrop')?.remove()
     if (action === 'logout') {
@@ -592,7 +594,7 @@ document.addEventListener('change', e => {
   if (e.target.id === 'voter-status') { state.filters.status = e.target.value; renderPage() }
   if (e.target.id === 'tps-village-filter') { state.filters.tpsVillage = e.target.value; renderPage() }
   if (e.target.id === 'tps-result-filter') { state.filters.tpsResult = e.target.value; renderPage() }
-  if (e.target.id === 'media' || e.target.id === 'c1_media') updateImagePreview(e.target)
+  if (e.target.id === 'media' || e.target.id === 'c1_media') { capturedFiles.delete(e.target.id); updateImagePreview(e.target) }
 })
 
 document.addEventListener('submit', async e => {
@@ -613,11 +615,11 @@ document.addEventListener('submit', async e => {
     if (form.id === 'voter-form') { const id = fd.get('id') || null; return save('voters', { full_name: fd.get('full_name').trim(), phone: fd.get('phone').trim() || null, village: fd.get('village').trim(), address: fd.get('address').trim() || null, polling_station: fd.get('polling_station').trim() || null, preference: fd.get('preference'), team_id: fd.get('team_id') || null, notes: fd.get('notes').trim() || null, updated_by: state.profile.id }, id, button) }
     if (form.id === 'activity-form') { const id = fd.get('id') || null; return save('activities', { title: fd.get('title').trim(), description: fd.get('description').trim() || null, team_id: fd.get('team_id') || null, status: fd.get('status'), progress: Number(fd.get('progress')), due_date: fd.get('due_date') || null, assignee_id: state.profile.id, updated_by: state.profile.id }, id, button) }
     if (form.id === 'report-form') {
-      setBusy(button, true, 'Mengirim…'); let media_path = null; let file = fd.get('media')
+      setBusy(button, true, 'Mengirim…'); let media_path = null; let file = capturedFiles.get('media') || fd.get('media')
       if (file?.size) { if (file.size > 20 * 1024 * 1024) throw new Error('Ukuran foto maksimal 20 MB.'); file = await optimizeImage(file); const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '-'); media_path = `${state.profile.id}/${Date.now()}-${safe}`; const up = await supabase.storage.from('field-evidence').upload(media_path, file, { cacheControl: '3600', contentType: file.type, upsert: false }); if (up.error) throw up.error }
       const { error } = await supabase.from('field_reports').insert({ title: fd.get('title').trim(), summary: fd.get('summary').trim(), report_type: fd.get('report_type'), report_date: fd.get('report_date'), media_path, reporter_id: state.profile.id, team_id: state.profile.team_id })
       if (error) { if (media_path) await supabase.storage.from('field-evidence').remove([media_path]); throw error }
-      setBusy(button, false); stopCamera(); form.closest('.modal-backdrop').remove(); await loadAll(true); renderPage(); toast('Laporan berhasil dikirim.'); return
+      setBusy(button, false); stopCamera(); capturedFiles.delete('media'); form.closest('.modal-backdrop').remove(); await loadAll(true); renderPage(); toast('Laporan berhasil dikirim.'); return
     }
     if (form.id === 'tps-result-form') {
       setBusy(button, true, 'Mengompresi & mengirim…')
@@ -630,7 +632,7 @@ document.addEventListener('submit', async e => {
       const voteTotal = payload.our_votes + payload.opponent1_votes + payload.opponent2_votes + payload.invalid_votes
       if (payload.voters_present > payload.dpt_total) throw new Error('Pengguna hak pilih tidak boleh melebihi total DPT TPS.')
       if (voteTotal > payload.voters_present) throw new Error(`Jumlah seluruh suara (${voteTotal}) melebihi pengguna hak pilih (${payload.voters_present}).`)
-      let file = fd.get('c1_media')
+      let file = capturedFiles.get('c1_media') || fd.get('c1_media')
       if (!file?.size) throw new Error('Foto C1 Plano wajib diambil atau dipilih sebelum mengirim data.')
       if (file.size > 20 * 1024 * 1024) throw new Error('Ukuran foto awal maksimal 20 MB.')
       file = await optimizeImage(file)
@@ -644,7 +646,7 @@ document.addEventListener('submit', async e => {
         if (error.code === '23505') throw new Error(`${payload.village} TPS ${payload.tps_number} sudah pernah dikirim. Hubungi Owner untuk koreksi.`)
         throw error
       }
-      setBusy(button, false); stopCamera(); form.closest('.modal-backdrop').remove(); await loadAll(true); state.page = 'realcount'; renderPage(); toast('Data TPS dan foto C1 berhasil dikirim ke pusat secara real-time.'); return
+      setBusy(button, false); stopCamera(); capturedFiles.delete('c1_media'); form.closest('.modal-backdrop').remove(); await loadAll(true); state.page = 'realcount'; renderPage(); toast('Data TPS dan foto C1 berhasil dikirim ke pusat secara real-time.'); return
     }
     if (form.id === 'command-form') return save('commands', { title: fd.get('title').trim(), message: fd.get('message').trim(), priority: fd.get('priority'), whatsapp_message: fd.get('whatsapp_message').trim() || null, created_by: state.profile.id }, null, button)
     if (form.id === 'opponent-form') return save('opponent_snapshots', { opponent_name: fd.get('opponent_name').trim(), estimated_support: Number(fd.get('estimated_support')), notes: fd.get('notes').trim() || null, snapshot_date: today(), created_by: state.profile.id }, null, button)
