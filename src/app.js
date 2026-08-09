@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import './styles.css'
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+// Publishable credentials are intentionally safe in a browser; authorization is enforced by RLS.
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://ovdpickavnunobseqzuj.supabase.co'
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_d7WSuzc1oRs6euOBAVMUrg_nLK8Uv7C'
 const configured = Boolean(SUPABASE_URL && SUPABASE_KEY && !SUPABASE_URL.includes('PROJECT_REF'))
 const supabase = configured ? createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
