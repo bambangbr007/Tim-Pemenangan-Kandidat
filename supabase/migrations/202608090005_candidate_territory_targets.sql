@@ -19,7 +19,7 @@ create table public.candidates (
   updated_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique nulls not distinct (ballot_number)
+  unique (ballot_number)
 );
 
 create unique index candidates_one_ours_idx on public.candidates (is_our_candidate) where is_our_candidate;
