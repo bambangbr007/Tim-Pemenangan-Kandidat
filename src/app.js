@@ -63,6 +63,15 @@ function toast(message, type = '') {
   setTimeout(() => el.remove(), 3200)
 }
 
+const isSessionError = error => /auth session missing|session.*missing|jwt.*expired|refresh token/i.test(String(error?.message || error || ''))
+
+function returnToLogin(message = 'Sesi Anda telah berakhir. Silakan masuk kembali.') {
+  if (state.realtime) { supabase.removeChannel(state.realtime); state.realtime = null }
+  clearCampaignData(); state.strategy = null; state.session = null; state.profile = null
+  document.querySelector('.modal-backdrop')?.remove(); document.querySelector('.menu-drawer-backdrop')?.remove()
+  authScreen('login', message)
+}
+
 function setBusy(button, busy, label = 'Memproses…') {
   state.busy = busy
   if (!button) return
@@ -377,10 +386,9 @@ document.addEventListener('click', async e => {
     if (action === 'open-menu') openMenuDrawer()
     if (action === 'close-menu') document.querySelector('.menu-drawer-backdrop')?.remove()
     if (action === 'logout') {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
-      if (state.realtime) { supabase.removeChannel(state.realtime); state.realtime = null }
-      clearCampaignData(); state.strategy = null; state.session = null; state.profile = null; authScreen(); return
+      const { error } = await supabase.auth.signOut({ scope: 'local' })
+      if (error && !isSessionError(error)) throw error
+      returnToLogin('Anda telah keluar dengan aman.'); return
     }
     if (action === 'refresh') { await loadAll(true); renderPage(); toast('Data sudah diperbarui.') }
     if (action === 'print') window.print()
@@ -409,7 +417,7 @@ document.addEventListener('click', async e => {
     if (action === 'read-notifications') { await supabase.from('notifications').update({ read_at: new Date().toISOString() }).is('read_at', null); await loadAll(true); document.querySelector('.modal-backdrop')?.remove(); renderPage() }
     if (action === 'change-password') openModal('Ganti Password', `${field('new_password', 'Password baru', '', 'type="password" minlength="8" required autocomplete="new-password"')}<div class="actions"><button class="btn btn-primary">Perbarui Password</button></div>`, 'password-form')
     if (action === 'forgot') { const email = document.querySelector('#email')?.value; if (!email) return toast('Isi email terlebih dahulu.', 'error'); const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin }); if (error) throw error; toast('Tautan reset telah dikirim.') }
-  } catch (err) { console.error(err); toast(err.message || 'Terjadi kesalahan.', 'error') }
+  } catch (err) { console.error(err); if (isSessionError(err)) return returnToLogin(); toast(err.message || 'Terjadi kesalahan.', 'error') }
 })
 
 document.addEventListener('input', e => { if (e.target.id === 'voter-search') { state.filters.voter = e.target.value; clearTimeout(reloadTimer); reloadTimer = setTimeout(renderPage, 180) } })
@@ -453,7 +461,7 @@ document.addEventListener('submit', async e => {
     if (form.id === 'opponent-form') return save('opponent_snapshots', { opponent_name: fd.get('opponent_name').trim(), estimated_support: Number(fd.get('estimated_support')), notes: fd.get('notes').trim() || null, snapshot_date: today(), created_by: state.profile.id }, null, button)
     if (form.id === 'team-form') return save('teams', { name: fd.get('name').trim(), area: fd.get('area').trim() || null, created_by: state.profile.id }, null, button)
     if (form.id === 'password-form') { setBusy(button, true); const { error } = await supabase.auth.updateUser({ password: fd.get('new_password') }); setBusy(button, false); if (error) throw error; form.closest('.modal-backdrop').remove(); toast('Password berhasil diperbarui.') }
-  } catch (err) { setBusy(button, false); console.error(err); const box = form.querySelector('#auth-error'); if (box) box.innerHTML = `<div class="error-box">${esc(err.message)}</div>`; else toast(err.message || 'Gagal memproses data.', 'error') }
+  } catch (err) { setBusy(button, false); console.error(err); if (isSessionError(err)) return returnToLogin(); const box = form.querySelector('#auth-error'); if (box) box.innerHTML = `<div class="error-box">${esc(err.message)}</div>`; else toast(err.message || 'Gagal memproses data.', 'error') }
 })
 
 async function start() {
@@ -473,7 +481,7 @@ async function bootSession() {
     await loadAll(true)
     renderPage()
     subscribeRealtime()
-  } catch (err) { console.error(err); app.innerHTML = `<main class="auth-shell"><section class="auth-card"><div class="error-box">Gagal memuat aplikasi: ${esc(err.message)}</div><button class="btn btn-ghost btn-block" data-action="logout">Keluar</button></section></main>` }
+  } catch (err) { console.error(err); if (isSessionError(err)) return returnToLogin(); app.innerHTML = `<main class="auth-shell"><section class="auth-card"><div class="error-box">Gagal memuat aplikasi: ${esc(err.message)}</div><button class="btn btn-ghost btn-block" data-action="logout">Keluar</button></section></main>` }
 }
 
 start()
