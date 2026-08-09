@@ -16,8 +16,8 @@ const TOTAL_DPT = 78500
 const TOTAL_TPS = 200
 const state = {
   session: null, profile: null, page: 'dashboard', busy: false, realtime: null,
-  voters: [], activities: [], reports: [], commands: [], opponents: [], profiles: [], teams: [], notifications: [], tpsResults: [], assistance: [], electionIncidents: [],
-  filters: { voter: '', status: '', report: '', tpsVillage: '', tpsResult: '', tpsWitness: '', assistanceStatus: '', assistanceGroup: '', assistanceSearch: '' }, strategy: null
+  voters: [], activities: [], reports: [], commands: [], opponents: [], profiles: [], teams: [], notifications: [], tpsResults: [], assistance: [], electionIncidents: [], candidates: [], territoryTargets: [], campaignSettings: null,
+  filters: { voter: '', status: '', report: '', tpsVillage: '', tpsResult: '', tpsWitness: '', assistanceStatus: '', assistanceGroup: '', assistanceSearch: '', targetScope: '', targetTeam: '' }, strategy: null
 }
 let cameraStream = null
 let cameraTarget = null
@@ -28,12 +28,16 @@ const rupiah = n => new Intl.NumberFormat('id-ID').format(Number(n || 0))
 const dateId = value => value ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(new Date(value)) : '-'
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
 const initials = name => String(name || 'U').split(/\s+/).slice(0, 2).map(x => x[0]).join('').toUpperCase()
-const title = s => ({ dashboard: 'Dasbor Komando', voters: 'Data Pemilih', field: 'Kegiatan Lapangan', commands: 'AI Strategy Advisor', realcount: 'Real Count TPS', mobilization: 'Bantuan & Keamanan TPS', more: 'Menu Utama' }[s] || 'Dasbor Komando')
+const title = s => ({ dashboard: 'Dasbor Komando', voters: 'Data Pemilih', field: 'Kegiatan Lapangan', commands: 'AI Strategy Advisor', realcount: 'Real Count TPS', mobilization: 'Bantuan & Keamanan TPS', targets: 'Target Wilayah', more: 'Menu Utama' }[s] || 'Dasbor Komando')
 const roleName = r => ({ admin: 'Admin', owner: 'Owner', team: 'Tim Pemenangan' }[r] || r)
 const voterStatus = s => ({ support: 'Siap Bergabung', swing: 'Swing Voter', refuse: 'Belum Bersedia', unknown: 'Belum Dipetakan' }[s] || s)
 const statusChip = s => ({ support: 'ok', swing: 'warn', refuse: 'bad', unknown: 'info', active: 'ok', pending: 'warn', rejected: 'bad', done: 'ok', in_progress: 'info', planned: 'warn', urgent: 'bad' }[s] || 'info')
 const can = (...roles) => state.profile && roles.includes(state.profile.role)
-const clearCampaignData = () => { for (const key of ['voters', 'activities', 'reports', 'commands', 'opponents', 'profiles', 'teams', 'notifications', 'tpsResults', 'assistance', 'electionIncidents']) state[key] = [] }
+const clearCampaignData = () => { for (const key of ['voters', 'activities', 'reports', 'commands', 'opponents', 'profiles', 'teams', 'notifications', 'tpsResults', 'assistance', 'electionIncidents', 'candidates', 'territoryTargets']) state[key] = []; state.campaignSettings = null }
+const ourCandidate = () => state.candidates.find(c => c.is_our_candidate && c.is_active) || state.candidates.find(c => c.is_active)
+const campaignTarget = () => Number(state.campaignSettings?.total_target ?? CAMPAIGN_TARGET)
+const campaignDpt = () => Number(state.campaignSettings?.total_dpt ?? TOTAL_DPT)
+const campaignName = () => ourCandidate()?.candidate_name || state.campaignSettings?.candidate_name || 'Kandidat Kita'
 const icon = (name, cls = '') => {
   const paths = {
     dashboard: '<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
@@ -132,21 +136,25 @@ async function loadAll(quiet = false) {
     supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(100),
     supabase.from('tps_results').select('*, profiles!tps_results_reporter_id_fkey(full_name,phone)').order('created_at', { ascending: false }).limit(1000),
     supabase.from('voter_assistance').select('*').order('created_at', { ascending: false }).limit(1000),
-    supabase.from('election_day_incidents').select('*, profiles!election_day_incidents_reporter_id_fkey(full_name,phone)').order('created_at', { ascending: false }).limit(500)
+    supabase.from('election_day_incidents').select('*, profiles!election_day_incidents_reporter_id_fkey(full_name,phone)').order('created_at', { ascending: false }).limit(500),
+    supabase.from('candidates').select('*').order('ballot_number', { ascending: true, nullsFirst: false }),
+    supabase.from('territory_targets').select('*, candidates(candidate_name,color,is_our_candidate), teams(name)').order('area_name').order('scope_type'),
+    supabase.from('campaign_settings').select('*').eq('id', true)
   ]
   if (can('admin', 'owner')) queries.push(supabase.from('profiles').select('*').order('created_at', { ascending: false }))
   const results = await Promise.all(queries)
   const failed = results.find(x => x.error)
   if (failed) throw failed.error
-  ;[state.voters, state.activities, state.reports, state.commands, state.opponents, state.teams, state.notifications, state.tpsResults, state.assistance, state.electionIncidents] = results.slice(0, 10).map(x => x.data || [])
-  state.profiles = results[10]?.data || []
+  ;[state.voters, state.activities, state.reports, state.commands, state.opponents, state.teams, state.notifications, state.tpsResults, state.assistance, state.electionIncidents, state.candidates, state.territoryTargets] = results.slice(0, 12).map(x => x.data || [])
+  state.campaignSettings = results[12]?.data?.[0] || null
+  state.profiles = results[13]?.data || []
   if (!quiet) renderShell()
 }
 
 function subscribeRealtime() {
   if (state.realtime) supabase.removeChannel(state.realtime)
   const channel = supabase.channel(`campaign-${state.profile.id}`)
-  for (const table of ['voters', 'activities', 'field_reports', 'commands', 'opponent_snapshots', 'profiles', 'notifications', 'tps_results', 'voter_assistance', 'election_day_incidents']) {
+  for (const table of ['voters', 'activities', 'field_reports', 'commands', 'opponent_snapshots', 'profiles', 'notifications', 'tps_results', 'voter_assistance', 'election_day_incidents', 'candidates', 'territory_targets', 'campaign_settings']) {
     channel.on('postgres_changes', { event: '*', schema: 'public', table }, debounceReload)
   }
   state.realtime = channel.subscribe()
@@ -155,7 +163,7 @@ let reloadTimer
 function debounceReload() { clearTimeout(reloadTimer); reloadTimer = setTimeout(async () => { try { await loadAll(true); renderPage(); updateBadge() } catch { /* transient realtime refresh */ } }, 350) }
 
 function navButtons(cls = '', includeRealCount = false) {
-  const items = [['dashboard', 'dashboard', 'Dasbor'], ['voters', 'users', 'Pemilih'], ['field', 'clipboard', 'Kegiatan'], ...(includeRealCount ? [['realcount', 'vote', 'Real Count TPS'], ['mobilization', 'car', 'Bantuan & Keamanan TPS']] : []), ['commands', 'sparkle', 'AI Advisor'], ['more', 'menu', 'Menu']]
+  const items = [['dashboard', 'dashboard', 'Dasbor'], ['voters', 'users', 'Pemilih'], ['field', 'clipboard', 'Kegiatan'], ...(includeRealCount ? [['targets', 'chart', 'Target Wilayah'], ['realcount', 'vote', 'Real Count TPS'], ['mobilization', 'car', 'Bantuan & Keamanan TPS']] : []), ['commands', 'sparkle', 'AI Advisor'], ['more', 'menu', 'Menu']]
   return items.map(([id, iconName, label]) => `<button class="nav-btn ${cls} ${state.page === id ? 'active' : ''}" data-page="${id}">${icon(iconName)}<span>${label}</span></button>`).join('')
 }
 
@@ -198,18 +206,18 @@ function updateBadge() { const b = document.querySelector('#notif-badge'); if (b
 
 function renderPage() {
   const page = document.querySelector('#page'); if (!page) return
-  page.innerHTML = ({ dashboard: dashboardPage, voters: votersPage, field: fieldPage, commands: commandsPage, realcount: realCountPage, mobilization: mobilizationPage, more: morePage }[state.page] || dashboardPage)()
+  page.innerHTML = ({ dashboard: dashboardPage, voters: votersPage, field: fieldPage, commands: commandsPage, realcount: realCountPage, mobilization: mobilizationPage, targets: targetsPage, more: morePage }[state.page] || dashboardPage)()
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.page === state.page))
-  const fab = document.querySelector('#fab'); if (fab) fab.classList.toggle('hidden', !['voters', 'field', 'commands', 'realcount', 'mobilization'].includes(state.page) || (state.page === 'commands' && !can('admin', 'owner')))
+  const fab = document.querySelector('#fab'); if (fab) fab.classList.toggle('hidden', !['voters', 'field', 'commands', 'realcount', 'mobilization', 'targets'].includes(state.page) || (state.page === 'commands' && !can('admin', 'owner')) || (state.page === 'targets' && !can('admin')))
 }
 
 function dashboardPage() {
   const counts = Object.fromEntries(['support', 'swing', 'refuse', 'unknown'].map(s => [s, state.voters.filter(v => v.preference === s).length]))
-  const total = state.voters.length || 1, pct = Math.min(100, Math.round(counts.support / CAMPAIGN_TARGET * 100))
+  const target = campaignTarget(), dpt = campaignDpt(), total = state.voters.length || 1, pct = Math.min(100, Math.round(counts.support / Math.max(1, target) * 100))
   const done = state.activities.filter(a => a.status === 'done').length
   const fieldPct = state.activities.length ? Math.round(done / state.activities.length * 100) : 0
-  return `<section class="command-banner"><div class="command-copy"><span class="eyebrow">CANDIDATE COMMAND CENTER V2.0</span><h1>${esc(state.profile.full_name)}</h1><p><strong>${rupiah(CAMPAIGN_TARGET)} Suara</strong> dari Total DPT ${rupiah(TOTAL_DPT)}</p></div><div class="hero-actions"><button class="btn action-amber" data-action="add-voter">${icon('plus')} Input Pemilih</button><button class="btn action-cyan" data-action="add-report">${icon('clipboard')} Lapor Kegiatan</button></div></section>
-    <section class="card target-card"><div class="card-heading"><div><span>CAPAIAN RIIL TARGET SUARA</span><small>Data pendukung tervalidasi</small></div><b>${rupiah(counts.support)} / ${rupiah(CAMPAIGN_TARGET)} <em>(${pct}%)</em></b></div><div class="target-track"><i style="width:${Math.max(.4, pct)}%"></i></div></section>
+  return `<section class="command-banner"><div class="command-copy"><span class="eyebrow">CANDIDATE COMMAND CENTER V2.0</span><h1>${esc(campaignName())}</h1><p><strong>${rupiah(target)} Suara</strong> dari Total DPT ${rupiah(dpt)}</p></div><div class="hero-actions"><button class="btn action-amber" data-action="add-voter">${icon('plus')} Input Pemilih</button><button class="btn action-cyan" data-action="add-report">${icon('clipboard')} Lapor Kegiatan</button></div></section>
+    <section class="card target-card"><div class="card-heading"><div><span>CAPAIAN RIIL TARGET SUARA</span><small>Data pendukung tervalidasi</small></div><b>${rupiah(counts.support)} / ${rupiah(target)} <em>(${pct}%)</em></b></div><div class="target-track"><i style="width:${Math.max(.4, pct)}%"></i></div></section>
     <section class="bento-grid metric-grid">
       ${metricCard('support', 'PENDUKUNG (SIAP)', counts.support, 'Suara siap dikawal', 'user')}
       ${metricCard('swing', 'SWING VOTER', counts.swing, 'Perlu pendekatan taktis', 'help')}
@@ -278,7 +286,7 @@ function latestFieldItems() {
 function opponentChart() {
   const own = state.voters.length ? Math.round(state.voters.filter(v => v.preference === 'support').length / state.voters.length * 100) : 0
   const latest = new Map(); for (const o of state.opponents) if (!latest.has(o.opponent_name)) latest.set(o.opponent_name, Number(o.estimated_support || 0))
-  const rows = [['Kandidat Kita', own], ...latest.entries()].slice(0, 6), max = Math.max(100, ...rows.map(x => x[1]))
+  const rows = [[campaignName(), own], ...latest.entries()].slice(0, 6), max = Math.max(100, ...rows.map(x => x[1]))
   return rows.length ? `<div class="bars">${rows.map(([name, val]) => `<div class="bar-wrap"><div class="bar" style="height:${Math.max(3, val / max * 125)}px" title="${esc(name)} ${val}%"></div><span class="bar-label">${esc(name)}</span><b style="font-size:11px">${val}%</b></div>`).join('')}</div>` : empty('Belum ada data perbandingan.')
 }
 
@@ -539,10 +547,71 @@ function emergencyModal() {
   openModal('Laporan Keselamatan Hari-H', `<div class="emergency-notice">${icon('alert')} Jika ada bahaya langsung, utamakan keselamatan dan hubungi petugas berwenang. Jangan melakukan konfrontasi.</div>${selectField('incident_type', 'Jenis kejadian', [['obstruction','Hambatan akses menuju TPS'],['intimidation','Intimidasi / ancaman'],['suspected_violation','Dugaan pelanggaran pemilu'],['medical','Darurat medis'],['other','Lainnya']], 'obstruction')}<div class="field"><label for="incident_description">Kronologi singkat</label><textarea class="input" id="incident_description" name="description" required maxlength="1500" placeholder="Jelaskan waktu, lokasi, kejadian, dan pihak yang perlu dihubungi…"></textarea></div><input type="hidden" id="incident_latitude" name="latitude"><input type="hidden" id="incident_longitude" name="longitude"><input type="hidden" id="incident_accuracy" name="accuracy_m"><div class="gps-panel"><div>${icon('location')}<span><strong>Lokasi GPS</strong><small id="gps-status">Belum diambil</small></span></div><button class="btn action-cyan" type="button" data-action="get-gps">Ambil Lokasi</button></div><div class="actions"><button class="btn emergency-button" type="submit">${icon('send')} Simpan & Buka Draf WhatsApp</button></div><small class="engine-note">WhatsApp tidak dikirim otomatis. Relawan dapat meninjau dan memilih penerima sebelum mengirim.</small>`, 'incident-form')
 }
 
+const scopeName = scope => ({ area: 'Daerah', rw: 'RW', rt: 'RT', tps: 'TPS' }[scope] || scope)
+const numberKey = value => String(value || '').replace(/^0+/, '') || '0'
+function targetLocation(row) {
+  return [row.area_name, row.rw_number && `RW ${row.rw_number}`, row.rt_number && `RT ${row.rt_number}`, row.tps_number && `TPS ${row.tps_number}`].filter(Boolean).join(' · ')
+}
+function territoryActual(row) {
+  if (!row.candidates?.is_our_candidate) return Number(row.achieved_votes || 0)
+  const matches = state.tpsResults.filter(t => t.verification_status !== 'disputed' && String(t.village || '').trim().toLowerCase() === String(row.area_name || '').trim().toLowerCase())
+  const fromRealCount = row.scope_type === 'area'
+    ? matches.reduce((sum, t) => sum + Number(t.our_votes || 0), 0)
+    : row.scope_type === 'tps'
+      ? matches.filter(t => numberKey(t.tps_number) === numberKey(row.tps_number)).reduce((sum, t) => sum + Number(t.our_votes || 0), 0)
+      : 0
+  return Math.max(Number(row.achieved_votes || 0), fromRealCount)
+}
+
+function targetsPage() {
+  const scope = state.filters.targetScope, team = state.filters.targetTeam
+  const rows = state.territoryTargets.filter(r => (!scope || r.scope_type === scope) && (!team || r.team_id === team))
+  const configuredDpt = campaignDpt(), configuredTarget = campaignTarget(), actual = ourCandidate() ? state.tpsResults.filter(t => t.verification_status !== 'disputed').reduce((s, t) => s + Number(t.our_votes || 0), 0) : 0
+  const pct = Number(percentage(actual, configuredTarget))
+  return `<section class="target-command-head"><div><span class="target-live">${icon('chart')} TARGET CONTROL CENTER · REAL-TIME</span><h1>Konfigurasi Kandidat & Target Wilayah</h1><p>DPT, target suara, capaian, dan penanggung jawab tersusun dari daerah hingga TPS.</p></div>${can('admin') ? `<div class="hero-actions"><button class="btn btn-ghost" data-action="campaign-settings">${icon('save')} DPT & Target Utama</button><button class="btn action-amber" data-action="add-target">${icon('plus')} Target Wilayah</button></div>` : ''}</section>
+    <section class="bento-grid target-summary-grid">
+      <article class="card target-summary dpt"><span>TOTAL DPT</span><strong>${rupiah(configuredDpt)}</strong><small>Konfigurasi pemilihan</small></article>
+      <article class="card target-summary goal"><span>TARGET SUARA</span><strong>${rupiah(configuredTarget)}</strong><small>${percentage(configuredTarget, configuredDpt)}% dari DPT</small></article>
+      <article class="card target-summary actual"><span>REAL COUNT KITA</span><strong>${rupiah(actual)}</strong><small>${pct}% dari target</small></article>
+      <article class="card target-summary coverage"><span>UNIT TARGET</span><strong>${rupiah(state.territoryTargets.length)}</strong><small>Daerah, RW, RT & TPS</small></article>
+    </section>
+    <section class="card candidate-panel"><div class="card-heading"><div><span>DAFTAR CALON KANDIDAT</span><small>${state.candidates.length} kandidat dikonfigurasi Admin</small></div>${can('admin') ? `<button class="mini-action" data-action="add-candidate">＋ Kandidat</button>` : ''}</div><div class="candidate-grid">${state.candidates.map(candidateCard).join('') || empty('Admin belum menambahkan kandidat.')}</div></section>
+    <section class="card target-monitor"><div class="card-heading"><div><span>GRAFIK TARGET BERJENJANG</span><small>DPT vs target vs capaian suara per unit</small></div><span class="chip info">LIVE</span></div><div class="target-toolbar"><select class="input" id="target-scope-filter"><option value="">Semua tingkat</option>${['area','rw','rt','tps'].map(x => `<option value="${x}" ${scope === x ? 'selected' : ''}>${scopeName(x)}</option>`).join('')}</select><select class="input" id="target-team-filter"><option value="">Semua tim</option>${state.teams.map(t => `<option value="${t.id}" ${team === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>${can('admin') ? `<button class="btn action-cyan" data-action="add-target">${icon('plus')} Tambah Target</button>` : ''}</div><div class="scope-chart-grid">${['area','rw','rt','tps'].filter(x => !scope || scope === x).map(x => targetScopeChart(x, rows.filter(r => r.scope_type === x))).join('')}</div></section>
+    <section class="card target-detail-panel"><div class="card-heading"><div><span>RINCIAN PENUGASAN TIM</span><small>${rows.length} target sesuai filter</small></div></div><div class="target-detail-list">${rows.map(targetDetailItem).join('') || empty('Belum ada target pada filter ini.')}</div></section><footer>BBR @ SYNERGY smart system</footer>`
+}
+
+function candidateCard(row) {
+  return `<article class="candidate-card ${row.is_our_candidate ? 'ours' : ''}" style="--candidate:${esc(row.color)}"><div class="candidate-number">${row.ballot_number || '–'}</div><div><span>${row.is_our_candidate ? 'KANDIDAT KITA' : 'CALON KANDIDAT'}</span><strong>${esc(row.candidate_name)}</strong><small>${esc(row.deputy_name ? `Wakil: ${row.deputy_name}` : row.coalition || 'Keterangan belum diisi')}</small></div>${can('admin') ? `<button class="mini-action" data-action="edit-candidate" data-id="${row.id}">Ubah</button>` : ''}</article>`
+}
+
+function targetScopeChart(scope, rows) {
+  const display = rows.slice().sort((a, b) => targetLocation(a).localeCompare(targetLocation(b), 'id')).slice(0, 20)
+  return `<article class="scope-chart"><div class="scope-chart-head"><div><span>${scopeName(scope).toUpperCase()}</span><strong>${rows.length} Unit</strong></div><b>${rupiah(rows.reduce((s, r) => s + Number(r.vote_target || 0), 0))} target</b></div><div class="scope-bars">${display.map(r => { const actual = territoryActual(r), goalPct = Math.min(100, Number(percentage(r.vote_target, r.dpt_total))), actualPct = Math.min(100, Number(percentage(actual, r.dpt_total))); return `<div class="scope-bar-row"><div><span>${esc(targetLocation(r))}</span><b>${rupiah(actual)} / ${rupiah(r.vote_target)}</b></div><div class="scope-track"><i class="goal" style="width:${Math.max(1, goalPct)}%"></i><i class="actual" style="width:${Math.max(0, actualPct)}%"></i></div><small>DPT ${rupiah(r.dpt_total)} · ${esc(r.teams?.name || 'Belum ada tim')}</small></div>` }).join('') || empty(`Belum ada target tingkat ${scopeName(scope)}.`)}</div></article>`
+}
+
+function targetDetailItem(row) {
+  const actual = territoryActual(row), progress = Math.min(100, Number(percentage(actual, row.vote_target)))
+  return `<article class="target-detail-item"><div class="target-scope-icon">${scopeName(row.scope_type).slice(0, 3).toUpperCase()}</div><div class="target-detail-main"><div><strong>${esc(targetLocation(row))}</strong><span class="chip">${esc(row.candidates?.candidate_name || 'Kandidat')}</span></div><p>${esc(row.teams?.name || 'Belum ditugaskan')} · DPT ${rupiah(row.dpt_total)} · Target ${rupiah(row.vote_target)}</p><div class="assignment-track"><i style="width:${progress}%"></i></div><small>Capaian ${rupiah(actual)} suara (${progress}%)</small></div>${can('admin') ? `<button class="mini-action" data-action="edit-target" data-id="${row.id}">Ubah</button>` : ''}</article>`
+}
+
+function campaignSettingsModal() {
+  const s = state.campaignSettings || {}
+  openModal('DPT & Target Utama Pemilihan', `<div class="form-grid two">${field('candidate_name', 'Nama tampilan kandidat', campaignName(), 'required maxlength="120"')}${field('election_type', 'Jenis pemilihan', s.election_type || 'Pemilihan', 'required maxlength="100"')}${field('election_date', 'Tanggal pemilihan', s.election_date, 'type="date"')}${field('total_dpt', 'Total DPT seluruh wilayah', s.total_dpt || 0, 'type="number" min="0" required')}${field('total_target', 'Target suara keseluruhan', s.total_target || 0, 'type="number" min="0" required')}</div><div class="actions"><button class="btn action-amber" type="submit">${icon('save')} Simpan Konfigurasi</button></div>`, 'campaign-settings-form')
+}
+
+function candidateModal(row = {}) {
+  openModal(row.id ? 'Ubah Calon Kandidat' : 'Tambah Calon Kandidat', `<input type="hidden" name="id" value="${row.id || ''}"><div class="form-grid two">${field('ballot_number', 'Nomor urut', row.ballot_number, 'type="number" min="1" max="99"')}${field('candidate_name', 'Nama kandidat', row.candidate_name, 'required maxlength="120"')}${field('deputy_name', 'Nama calon wakil', row.deputy_name, 'maxlength="120"')}${field('coalition', 'Partai / koalisi / keterangan', row.coalition, 'maxlength="240"')}${field('color', 'Warna grafik kandidat', row.color || '#f59e0b', 'type="color" required')}</div><label class="consent-check"><input type="checkbox" name="is_our_candidate" ${row.is_our_candidate ? 'checked' : ''}><span><strong>Tetapkan sebagai kandidat kita</strong><small>Hanya satu kandidat yang dapat menjadi kandidat utama tim.</small></span></label><div class="actions"><button class="btn action-amber" type="submit">${icon('save')} Simpan Kandidat</button></div>`, 'candidate-form')
+}
+
+function targetModal(row = {}) {
+  const candidateOptions = state.candidates.map(c => [c.id, `${c.ballot_number ? `No. ${c.ballot_number} · ` : ''}${c.candidate_name}`])
+  openModal(row.id ? 'Ubah Target Wilayah' : 'Tetapkan Target Wilayah', `<input type="hidden" name="id" value="${row.id || ''}"><div class="form-grid two">${selectField('candidate_id', 'Kandidat', candidateOptions, row.candidate_id || ourCandidate()?.id)}${selectField('scope_type', 'Tingkat target', [['area','Daerah / Desa'],['rw','RW'],['rt','RT'],['tps','TPS']], row.scope_type || 'area')}${field('area_name', 'Nama daerah / desa', row.area_name, 'required maxlength="120"')}${field('rw_number', 'Nomor RW', row.rw_number, 'maxlength="10" placeholder="01"')}${field('rt_number', 'Nomor RT', row.rt_number, 'maxlength="10" placeholder="01"')}${field('tps_number', 'Nomor TPS', row.tps_number, 'maxlength="20" placeholder="01"')}${field('dpt_total', 'Jumlah DPT unit', row.dpt_total || 0, 'type="number" min="1" required')}${field('vote_target', 'Target suara tim', row.vote_target || 0, 'type="number" min="0" required')}${field('achieved_votes', 'Capaian manual saat ini', row.achieved_votes || 0, 'type="number" min="0" required')}<div class="field"><label for="team_id">Tim penanggung jawab</label><select class="input" id="team_id" name="team_id">${teamOptions(row.team_id)}</select></div></div><div class="field"><label for="target_notes">Catatan target</label><textarea class="input" id="target_notes" name="notes" maxlength="500">${esc(row.notes || '')}</textarea></div><div class="target-form-help">Untuk tingkat RW isi nomor RW. Untuk RT isi RW dan RT. Untuk TPS, nomor TPS wajib diisi.</div><div class="actions"><button class="btn action-amber" type="submit">${icon('save')} Simpan Target Tim</button></div>`, 'target-form')
+}
+
 function morePage() {
   const pending = state.profiles.filter(p => p.approval_status === 'pending')
   return `<section class="card profile-card"><div class="avatar">${initials(state.profile.full_name)}</div><h2>${esc(state.profile.full_name)}</h2><p class="muted">${esc(roleName(state.profile.role))} • ${esc(state.session.user.email)}</p>${state.profile.phone ? `<a class="chip" href="https://wa.me/${phoneIntl(state.profile.phone)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}</section>
-    <div class="section-title"><h2>Menu</h2></div><section class="list"><button class="list-item btn" data-page="realcount"><span>▥</span><div class="list-main"><strong>Real Count & Quick Count TPS</strong><p>Input C1, rekap suara, dan pemantauan anomali</p></div></button><button class="list-item btn" data-page="mobilization"><span>♧</span><div class="list-main"><strong>Bantuan & Keamanan TPS</strong><p>Transportasi sukarela, aksesibilitas, dan laporan keselamatan</p></div></button><button class="list-item btn" data-action="notifications"><span>♢</span><div class="list-main"><strong>Notifikasi</strong><p>${unreadCount()} belum dibaca</p></div></button>${can('admin', 'owner') ? `<button class="list-item btn" data-action="add-opponent"><span>◫</span><div class="list-main"><strong>Data Tim Lawan</strong><p>Input estimasi kondisi lapangan</p></div></button>` : ''}<button class="list-item btn" data-action="change-password"><span>⌘</span><div class="list-main"><strong>Ganti Password</strong><p>Perbarui keamanan akun</p></div></button><button class="list-item btn" data-action="logout"><span>↪</span><div class="list-main"><strong>Keluar</strong><p>Akhiri sesi aplikasi</p></div></button></section>
+    <div class="section-title"><h2>Menu</h2></div><section class="list"><button class="list-item btn" data-page="targets"><span>▤</span><div class="list-main"><strong>Kandidat & Target Wilayah</strong><p>DPT, target daerah, RW, RT, TPS, tim dan grafik capaian</p></div></button><button class="list-item btn" data-page="realcount"><span>▥</span><div class="list-main"><strong>Real Count & Quick Count TPS</strong><p>Input C1, rekap suara, dan pemantauan anomali</p></div></button><button class="list-item btn" data-page="mobilization"><span>♧</span><div class="list-main"><strong>Bantuan & Keamanan TPS</strong><p>Transportasi sukarela, aksesibilitas, dan laporan keselamatan</p></div></button><button class="list-item btn" data-action="notifications"><span>♢</span><div class="list-main"><strong>Notifikasi</strong><p>${unreadCount()} belum dibaca</p></div></button>${can('admin', 'owner') ? `<button class="list-item btn" data-action="add-opponent"><span>◫</span><div class="list-main"><strong>Data Tim Lawan</strong><p>Input estimasi kondisi lapangan</p></div></button>` : ''}<button class="list-item btn" data-action="change-password"><span>⌘</span><div class="list-main"><strong>Ganti Password</strong><p>Perbarui keamanan akun</p></div></button><button class="list-item btn" data-action="logout"><span>↪</span><div class="list-main"><strong>Keluar</strong><p>Akhiri sesi aplikasi</p></div></button></section>
     ${can('admin') ? `<div class="section-title"><h2>Persetujuan Akun (${pending.length})</h2></div><section class="list">${pending.map(p => `<article class="list-item"><div class="avatar">${initials(p.full_name)}</div><div class="list-main"><strong>${esc(p.full_name)}</strong><p>${esc(p.phone || '')}</p><div class="meta"><select class="input" id="role-${p.id}" style="min-height:36px"><option value="team">Tim Pemenangan</option><option value="owner">Owner</option><option value="admin">Admin</option></select><select class="input" id="team-${p.id}" style="min-height:36px"><option value="">Tanpa tim</option>${state.teams.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select><button class="btn btn-primary" data-action="approve-user" data-id="${p.id}">Setujui</button><button class="btn btn-danger" data-action="reject-user" data-id="${p.id}">Tolak</button></div></div></article>`).join('') || empty('Tidak ada akun menunggu.')}</section><div class="section-title"><h2>Tim Pemenangan</h2><button class="btn btn-ghost" data-action="add-team">＋ Tim</button></div><section class="list">${state.teams.map(t => `<article class="list-item"><div class="list-main"><strong>${esc(t.name)}</strong><p>${esc(t.area || 'Wilayah belum ditetapkan')}</p></div></article>`).join('') || empty('Belum ada tim.')}</section>` : ''}`
 }
 
@@ -650,11 +719,16 @@ document.addEventListener('click', async e => {
     if (action === 'copy-strategy' && state.strategy) { await navigator.clipboard.writeText(state.strategy.draft); toast('Draf komando berhasil disalin.') }
     if (action === 'save-strategy' && state.strategy) await save('commands', { title: `Strategi: ${state.strategy.category}`, message: state.strategy.situation, priority: state.strategy.riskLevel === 'TINGGI' ? 'urgent' : 'normal', whatsapp_message: state.strategy.draft, created_by: state.profile.id }, null, el)
     if (action === 'whatsapp-strategy' && state.strategy) window.open(`https://wa.me/?text=${encodeURIComponent(state.strategy.draft)}`, '_blank', 'noopener')
-    if (action === 'add') ({ voters: () => voterModal(), field: () => reportModal(), commands: commandModal, realcount: () => tpsResultModal(), mobilization: () => assistanceModal() }[state.page]?.())
+    if (action === 'add') ({ voters: () => voterModal(), field: () => reportModal(), commands: commandModal, realcount: () => tpsResultModal(), mobilization: () => assistanceModal(), targets: () => state.candidates.length ? targetModal() : candidateModal() }[state.page]?.())
     if (action === 'edit-voter') voterModal(state.voters.find(v => v.id === el.dataset.id))
     if (action === 'delete-voter' && confirm('Hapus data pemilih ini? Tindakan tercatat dalam audit.')) { const { error } = await supabase.from('voters').delete().eq('id', el.dataset.id); if (error) throw error; el.closest('.modal-backdrop')?.remove(); await loadAll(true); renderPage(); toast('Data dihapus.') }
     if (action === 'add-activity') activityModal()
     if (action === 'edit-activity') activityModal(state.activities.find(a => a.id === el.dataset.id))
+    if (action === 'campaign-settings' && can('admin')) campaignSettingsModal()
+    if (action === 'add-candidate' && can('admin')) candidateModal()
+    if (action === 'edit-candidate' && can('admin')) candidateModal(state.candidates.find(c => c.id === el.dataset.id))
+    if (action === 'add-target' && can('admin')) state.candidates.length ? targetModal() : (toast('Tambahkan calon kandidat terlebih dahulu.', 'error'), candidateModal())
+    if (action === 'edit-target' && can('admin')) targetModal(state.territoryTargets.find(t => t.id === el.dataset.id))
     if (action === 'add-opponent') openModal('Data Kondisi Lawan', `${field('opponent_name', 'Nama kandidat/tim lawan', '', 'required maxlength="120"')}${field('estimated_support', 'Estimasi dukungan (%)', '', 'type="number" min="0" max="100" required')}<div class="field"><label for="notes">Catatan sumber lapangan</label><textarea class="input" id="notes" name="notes" maxlength="600"></textarea></div><div class="actions"><button class="btn btn-primary">Simpan</button></div>`, 'opponent-form')
     if (action === 'add-team') openModal('Tambah Tim', `${field('name', 'Nama tim', '', 'required maxlength="100"')}${field('area', 'Wilayah kerja', '', 'maxlength="160"')}<div class="actions"><button class="btn btn-primary">Simpan Tim</button></div>`, 'team-form')
     if (action === 'approve-user') { const role = document.querySelector(`#role-${el.dataset.id}`).value, team_id = document.querySelector(`#team-${el.dataset.id}`).value || null; await save('profiles', { role, team_id, approval_status: 'active', approved_at: new Date().toISOString(), approved_by: state.profile.id }, el.dataset.id, el) }
@@ -709,6 +783,8 @@ document.addEventListener('change', e => {
   if (e.target.id === 'tps-result-filter') { state.filters.tpsResult = e.target.value; renderPage() }
   if (e.target.id === 'assistance-status-filter') { state.filters.assistanceStatus = e.target.value; renderPage() }
   if (e.target.id === 'assistance-group-filter') { state.filters.assistanceGroup = e.target.value; renderPage() }
+  if (e.target.id === 'target-scope-filter') { state.filters.targetScope = e.target.value; renderPage() }
+  if (e.target.id === 'target-team-filter') { state.filters.targetTeam = e.target.value; renderPage() }
   if (e.target.id === 'media' || e.target.id === 'c1_media') { capturedFiles.delete(e.target.id); updateImagePreview(e.target) }
 })
 
@@ -726,6 +802,41 @@ document.addEventListener('submit', async e => {
     if (form.id === 'strategy-form') {
       state.strategy = generateStrategy(String(fd.get('strategy_category')), String(fd.get('strategy_area')), String(fd.get('strategy_detail')).trim())
       renderPage(); document.querySelector('.strategy-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); toast('Analisis strategi selesai dibuat.'); return
+    }
+    if (form.id === 'campaign-settings-form') {
+      const totalDpt = Number(fd.get('total_dpt')), totalTarget = Number(fd.get('total_target'))
+      if (totalTarget > totalDpt) throw new Error('Target suara keseluruhan tidak boleh melebihi total DPT.')
+      return save('campaign_settings', { candidate_name: String(fd.get('candidate_name')).trim(), election_type: String(fd.get('election_type')).trim(), election_date: fd.get('election_date') || null, total_dpt: totalDpt, total_target: totalTarget, updated_by: state.profile.id }, true, button)
+    }
+    if (form.id === 'candidate-form') {
+      const id = fd.get('id') || null, isOurs = fd.get('is_our_candidate') === 'on'
+      setBusy(button, true)
+      const payload = { ballot_number: fd.get('ballot_number') ? Number(fd.get('ballot_number')) : null, candidate_name: String(fd.get('candidate_name')).trim(), deputy_name: String(fd.get('deputy_name')).trim() || null, coalition: String(fd.get('coalition')).trim() || null, color: String(fd.get('color')), is_our_candidate: isOurs, updated_by: state.profile.id }
+      if (!id) payload.created_by = state.profile.id
+      if (isOurs) {
+        let clear = supabase.from('candidates').update({ is_our_candidate: false, updated_by: state.profile.id }).eq('is_our_candidate', true)
+        if (id) clear = clear.neq('id', id)
+        const { error: clearError } = await clear
+        if (clearError) throw clearError
+      }
+      const { error } = id ? await supabase.from('candidates').update(payload).eq('id', id) : await supabase.from('candidates').insert(payload)
+      if (error) throw error
+      if (isOurs) {
+        const { error: settingsError } = await supabase.from('campaign_settings').update({ candidate_name: payload.candidate_name, updated_by: state.profile.id }).eq('id', true)
+        if (settingsError) throw settingsError
+      }
+      setBusy(button, false); form.closest('.modal-backdrop').remove(); await loadAll(true); renderPage(); toast('Data kandidat berhasil disimpan.'); return
+    }
+    if (form.id === 'target-form') {
+      const id = fd.get('id') || null, scope = String(fd.get('scope_type')), dpt = Number(fd.get('dpt_total')), target = Number(fd.get('vote_target')), achieved = Number(fd.get('achieved_votes'))
+      const rw = String(fd.get('rw_number')).trim() || null, rt = String(fd.get('rt_number')).trim() || null, tps = String(fd.get('tps_number')).trim() || null
+      if ((scope === 'rw' || scope === 'rt') && !rw) throw new Error('Nomor RW wajib diisi untuk target RW/RT.')
+      if (scope === 'rt' && !rt) throw new Error('Nomor RT wajib diisi untuk target RT.')
+      if (scope === 'tps' && !tps) throw new Error('Nomor TPS wajib diisi untuk target TPS.')
+      if (target > dpt || achieved > dpt) throw new Error('Target dan capaian tidak boleh melebihi DPT unit.')
+      const payload = { candidate_id: fd.get('candidate_id'), scope_type: scope, area_name: String(fd.get('area_name')).trim(), rw_number: scope === 'area' ? null : rw, rt_number: ['area','rw'].includes(scope) ? null : rt, tps_number: scope === 'tps' ? tps : null, dpt_total: dpt, vote_target: target, achieved_votes: achieved, team_id: fd.get('team_id') || null, notes: String(fd.get('notes')).trim() || null, updated_by: state.profile.id }
+      if (!id) payload.created_by = state.profile.id
+      return save('territory_targets', payload, id, button)
     }
     if (form.id === 'voter-form') { const id = fd.get('id') || null; return save('voters', { full_name: fd.get('full_name').trim(), phone: fd.get('phone').trim() || null, village: fd.get('village').trim(), address: fd.get('address').trim() || null, polling_station: fd.get('polling_station').trim() || null, preference: fd.get('preference'), team_id: fd.get('team_id') || null, notes: fd.get('notes').trim() || null, updated_by: state.profile.id }, id, button) }
     if (form.id === 'activity-form') { const id = fd.get('id') || null; return save('activities', { title: fd.get('title').trim(), description: fd.get('description').trim() || null, team_id: fd.get('team_id') || null, status: fd.get('status'), progress: Number(fd.get('progress')), due_date: fd.get('due_date') || null, assignee_id: state.profile.id, updated_by: state.profile.id }, id, button) }

@@ -383,6 +383,59 @@ textarea.input { min-height: 105px; resize: vertical }
 .drawer-logout .ui-icon { width: 17px; height: 17px }
 .menu-drawer footer { margin: 0; padding: 9px 4px 1px; color: #475569; font-size: 8px }
 
+/* Candidate & territory target control */
+.target-command-head { position: relative; overflow: hidden; display: grid; gap: 17px; padding: 23px 19px; margin-bottom: 12px; border: 1px solid rgba(245,158,11,.2); border-radius: 20px; background: radial-gradient(circle at 90% 0,rgba(245,158,11,.14),transparent 34%),linear-gradient(135deg,#17150e,#0f172a 55%,#07131e) }
+.target-command-head h1 { max-width: 800px; margin: 11px 0 7px; font-size: clamp(24px,6vw,38px); line-height: 1.08; letter-spacing: -.05em }
+.target-command-head p { margin: 0; color: #94a3b8; font-size: 10px; line-height: 1.6 }
+.target-live { display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid rgba(6,182,212,.22); border-radius: 999px; background: rgba(6,182,212,.07); color: #67e8f9; font-size: 8px; font-weight: 950; letter-spacing: .08em }
+.target-live .ui-icon { width: 13px; height: 13px }
+.target-summary-grid { grid-template-columns: repeat(2,minmax(0,1fr)); margin-bottom: 12px }
+.target-summary { min-height: 124px; padding: 16px }
+.target-summary span { display: block; color: #7f8da2; font-size: 8px; font-weight: 950; letter-spacing: .08em }
+.target-summary strong { display: block; margin: 17px 0 6px; font-size: 27px; letter-spacing: -.05em }
+.target-summary small { color: #64748b; font-size: 8px }
+.target-summary.dpt strong { color: #e2e8f0 }
+.target-summary.goal strong { color: #fbbf24 }
+.target-summary.actual strong { color: #6ee7b7 }
+.target-summary.coverage strong { color: #67e8f9 }
+.candidate-panel, .target-monitor, .target-detail-panel { padding: 17px; margin-bottom: 12px }
+.candidate-grid { display: grid; gap: 8px }
+.candidate-card { position: relative; display: grid; grid-template-columns: 39px minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--line); border-left: 3px solid var(--candidate,#64748b); border-radius: 13px; background: rgba(8,15,27,.72) }
+.candidate-card.ours { background: linear-gradient(100deg,color-mix(in srgb,var(--candidate) 9%,transparent),rgba(8,15,27,.78)) }
+.candidate-number { display: grid; place-items: center; width: 39px; height: 39px; border: 1px solid color-mix(in srgb,var(--candidate) 30%,transparent); border-radius: 11px; background: color-mix(in srgb,var(--candidate) 10%,transparent); color: var(--candidate); font-size: 16px; font-weight: 950 }
+.candidate-card span, .candidate-card strong, .candidate-card small { display: block }
+.candidate-card span { color: var(--candidate); font-size: 7px; font-weight: 950; letter-spacing: .1em }
+.candidate-card strong { overflow: hidden; margin-top: 4px; font-size: 11px; white-space: nowrap; text-overflow: ellipsis }
+.candidate-card small { overflow: hidden; margin-top: 3px; color: #64748b; font-size: 8px; white-space: nowrap; text-overflow: ellipsis }
+.target-toolbar { display: grid; gap: 8px; margin-bottom: 13px }
+.scope-chart-grid { display: grid; gap: 10px }
+.scope-chart { padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: rgba(8,15,27,.72) }
+.scope-chart-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 11px; border-bottom: 1px solid var(--line) }
+.scope-chart-head span, .scope-chart-head strong { display: block }
+.scope-chart-head span { color: #67e8f9; font-size: 7px; font-weight: 950; letter-spacing: .11em }
+.scope-chart-head strong { margin-top: 3px; font-size: 11px }
+.scope-chart-head > b { color: #fbbf24; font-size: 9px }
+.scope-bars { display: grid; gap: 12px; padding-top: 12px }
+.scope-bar-row > div:first-child { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 5px; font-size: 8px }
+.scope-bar-row > div:first-child span { overflow: hidden; color: #cbd5e1; white-space: nowrap; text-overflow: ellipsis }
+.scope-bar-row > div:first-child b { flex: 0 0 auto; color: #f8fafc }
+.scope-track { position: relative; height: 8px; overflow: hidden; border-radius: 99px; background: #1e293b }
+.scope-track i { position: absolute; top: 0; bottom: 0; left: 0; border-radius: inherit }
+.scope-track .goal { background: linear-gradient(90deg,rgba(245,158,11,.35),rgba(245,158,11,.58)) }
+.scope-track .actual { height: 3px; top: auto; bottom: 0; background: linear-gradient(90deg,#059669,#34d399); box-shadow: 0 0 9px rgba(16,185,129,.35) }
+.scope-bar-row > small { display: block; margin-top: 5px; color: #64748b; font-size: 7px }
+.target-detail-list { display: grid; gap: 8px }
+.target-detail-item { display: grid; grid-template-columns: 36px minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 13px; background: rgba(8,15,27,.65) }
+.target-scope-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: rgba(6,182,212,.09); color: #67e8f9; font-size: 8px; font-weight: 950 }
+.target-detail-main { min-width: 0 }
+.target-detail-main > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 7px }
+.target-detail-main strong { overflow: hidden; font-size: 10px; white-space: nowrap; text-overflow: ellipsis }
+.target-detail-main p { margin: 5px 0 7px; color: #7f8da2; font-size: 8px; line-height: 1.4 }
+.assignment-track { height: 5px; overflow: hidden; border-radius: 99px; background: #1e293b }
+.assignment-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#d97706,#fbbf24) }
+.target-detail-main small { display: block; margin-top: 5px; color: #64748b; font-size: 7px }
+.target-form-help { padding: 10px; border: 1px solid rgba(6,182,212,.17); border-radius: 10px; background: rgba(6,182,212,.055); color: #94a3b8; font-size: 8px; line-height: 1.5 }
+
 /* Internal pages, forms, lists */
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin: 3px 0 18px }
 .page-head h1 { margin: 4px 0 5px; font-size: 25px; letter-spacing: -.045em }
@@ -570,6 +623,11 @@ footer { padding: 28px 12px 8px; color: #94a3b8; font-size: 11px; text-align: ce
   .assistance-toolbar { grid-template-columns: 1fr 1fr 1.2fr }
   .mobilization-actions { grid-template-columns: repeat(2,minmax(0,1fr)) }
   .check-grid { grid-template-columns: repeat(2,1fr) }
+  .target-command-head { grid-template-columns: 1fr auto; align-items: center; padding: 28px }
+  .target-summary-grid { grid-template-columns: repeat(4,minmax(0,1fr)) }
+  .candidate-grid { grid-template-columns: repeat(2,minmax(0,1fr)) }
+  .target-toolbar { grid-template-columns: 1fr 1fr auto }
+  .scope-chart-grid { grid-template-columns: repeat(2,minmax(0,1fr)) }
   .modal-backdrop { place-items: center; padding: 24px }
   .modal { width: min(640px,100%); max-height: 90vh; padding: 22px; border-radius: 20px }
   .modal-head { top: -22px }
