@@ -29,6 +29,7 @@ const roleName = r => ({ admin: 'Admin', owner: 'Owner', team: 'Tim Pemenangan' 
 const voterStatus = s => ({ support: 'Siap Bergabung', swing: 'Swing Voter', refuse: 'Belum Bersedia', unknown: 'Belum Dipetakan' }[s] || s)
 const statusChip = s => ({ support: 'ok', swing: 'warn', refuse: 'bad', unknown: 'info', active: 'ok', pending: 'warn', rejected: 'bad', done: 'ok', in_progress: 'info', planned: 'warn', urgent: 'bad' }[s] || 'info')
 const can = (...roles) => state.profile && roles.includes(state.profile.role)
+const clearCampaignData = () => { for (const key of ['voters', 'activities', 'reports', 'commands', 'opponents', 'profiles', 'teams', 'notifications']) state[key] = [] }
 const icon = (name, cls = '') => {
   const paths = {
     dashboard: '<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
@@ -42,6 +43,7 @@ const icon = (name, cls = '') => {
     shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>',
     database: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/>',
     send: '<path d="m22 2-7 20-4-9-9-4 20-7Z"/><path d="M22 2 11 13"/>',
+    logout: '<path d="M10 17l5-5-5-5M15 12H3"/><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/>',
     map: '<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/><path d="M9 3v15M15 6v15"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     refresh: '<path d="M20 6v5h-5M4 18v-5h5"/><path d="M18.5 9A7 7 0 0 0 6.2 6.2L4 9m16 6-2.2 2.8A7 7 0 0 1 5.5 15"/>'
@@ -131,7 +133,7 @@ function navButtons(cls = '') {
 
 function renderShell() {
   app.innerHTML = `<div class="shell"><aside class="desktop-side"><div class="side-brand"><span class="brand-mark">C</span><div><strong>Command Center</strong><small>Pantauan Pemenangan</small></div></div><nav class="side-nav">${navButtons()}</nav><div class="side-status"><i></i><div><strong>Realtime tersambung</strong><small>Database & lapangan aktif</small></div></div><div class="side-user"><div class="avatar">${initials(state.profile.full_name)}</div><div><strong>${esc(state.profile.full_name)}</strong><small>${esc(roleName(state.profile.role))}</small></div></div></aside>
-    <header class="topbar"><div class="top-profile"><div class="avatar">${initials(state.profile.full_name)}</div><div class="topbar-title"><strong>${esc(state.profile.full_name)}</strong><small>CANDIDATE COMMAND CENTER V2.0</small></div></div><div class="top-live"><i></i> REAL-TIME</div><button class="icon-btn bell-button" data-action="notifications" aria-label="Notifikasi">${icon('bell')}<b class="badge ${unreadCount() ? '' : 'hidden'}" id="notif-badge">${unreadCount()}</b></button></header>
+    <header class="topbar"><div class="top-profile"><div class="avatar">${initials(state.profile.full_name)}</div><div class="topbar-title"><strong>${esc(state.profile.full_name)}</strong><small>CANDIDATE COMMAND CENTER V2.0</small></div></div><div class="top-live"><i></i> REAL-TIME</div><button class="icon-btn bell-button" data-action="notifications" aria-label="Notifikasi">${icon('bell')}<b class="badge ${unreadCount() ? '' : 'hidden'}" id="notif-badge">${unreadCount()}</b></button><button class="exit-button" data-action="logout" aria-label="Keluar dari aplikasi">${icon('logout')}<span>Keluar</span></button></header>
     <main class="main layout" id="page"></main><button class="fab no-print" id="fab" data-action="add" aria-label="Tambah data">＋</button>
     <nav class="bottom-nav">${navButtons()}</nav><footer>BBR @ SYNERGY smart system</footer></div>`
   renderPage()
@@ -299,7 +301,12 @@ document.addEventListener('click', async e => {
   const action = el.dataset.action
   try {
     if (action === 'close-modal') el.closest('.modal-backdrop')?.remove()
-    if (action === 'logout') await supabase.auth.signOut()
+    if (action === 'logout') {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      if (state.realtime) { supabase.removeChannel(state.realtime); state.realtime = null }
+      clearCampaignData(); state.session = null; state.profile = null; authScreen(); return
+    }
     if (action === 'refresh') { await loadAll(true); renderPage(); toast('Data sudah diperbarui.') }
     if (action === 'print') window.print()
     if (action === 'export-voters') exportCsv()
@@ -367,7 +374,15 @@ async function start() {
 
 async function bootSession() {
   if (!state.session) { state.profile = null; if (state.realtime) supabase.removeChannel(state.realtime); return authScreen() }
-  try { await loadProfile(); if (state.profile.approval_status !== 'active') return pendingScreen(); await loadAll(); subscribeRealtime() } catch (err) { console.error(err); app.innerHTML = `<main class="auth-shell"><section class="auth-card"><div class="error-box">Gagal memuat aplikasi: ${esc(err.message)}</div><button class="btn btn-ghost btn-block" data-action="logout">Keluar</button></section></main>` }
+  try {
+    await loadProfile()
+    if (state.profile.approval_status !== 'active') return pendingScreen()
+    clearCampaignData()
+    renderShell()
+    await loadAll(true)
+    renderPage()
+    subscribeRealtime()
+  } catch (err) { console.error(err); app.innerHTML = `<main class="auth-shell"><section class="auth-card"><div class="error-box">Gagal memuat aplikasi: ${esc(err.message)}</div><button class="btn btn-ghost btn-block" data-action="logout">Keluar</button></section></main>` }
 }
 
 start()
