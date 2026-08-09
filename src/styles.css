@@ -84,6 +84,7 @@ textarea.input { min-height: 105px; resize: vertical }
 .top-live i, .side-status i { width: 7px; height: 7px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 14px rgba(6,182,212,.9) }
 .icon-btn { position: relative; display: grid; place-items: center; flex: 0 0 auto; width: 42px; height: 42px; border: 1px solid var(--line-strong); border-radius: 13px; background: rgba(15,23,42,.9); color: #cbd5e1; cursor: pointer }
 .bell-button { color: #fbbf24; box-shadow: inset 0 0 20px rgba(245,158,11,.035) }
+.hamburger-button { color: #67e8f9 }
 .exit-button { display: grid; place-items: center; flex: 0 0 auto; width: 42px; height: 42px; padding: 0; border: 1px solid rgba(239,68,68,.22); border-radius: 13px; background: rgba(127,29,29,.1); color: #fca5a5; cursor: pointer; transition: border-color .16s, background .16s, transform .16s }
 .exit-button:hover { transform: translateY(-1px); border-color: rgba(239,68,68,.42); background: rgba(127,29,29,.2) }
 .exit-button .ui-icon { width: 19px; height: 19px }
@@ -180,6 +181,93 @@ textarea.input { min-height: 105px; resize: vertical }
 .report-progress i, .progress i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #d97706, #fbbf24) }
 .field-report-copy > small { display: block; margin-top: 5px; color: #64748b; font-size: 8px }
 
+/* Rival intelligence */
+.rival-card { padding: 18px; margin-bottom: 12px; border-color: rgba(239,68,68,.16) }
+.rival-layout { display: grid; gap: 17px }
+.rival-bars { display: grid; gap: 13px }
+.rival-row > div:first-child { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; font-size: 10px }
+.rival-row b { color: #cbd5e1 }
+.rival-track { height: 8px; overflow: hidden; border-radius: 99px; background: #1e293b }
+.rival-track i { display: block; height: 100%; border-radius: 99px }
+.rival-track i.ours { background: linear-gradient(90deg,#d97706,#fbbf24); box-shadow: 0 0 14px rgba(245,158,11,.25) }
+.rival-track i.rival { background: linear-gradient(90deg,#991b1b,#ef4444); box-shadow: 0 0 14px rgba(239,68,68,.18) }
+.rival-advice { padding: 14px; border: 1px solid rgba(99,102,241,.2); border-radius: 13px; background: linear-gradient(145deg,rgba(49,46,129,.22),rgba(15,23,42,.74)) }
+.rival-advice > span { display: flex; align-items: center; gap: 6px; color: #a5b4fc; font-size: 8px; font-weight: 950; letter-spacing: .08em }
+.rival-advice .ui-icon { width: 14px; height: 14px }
+.rival-advice p { margin: 10px 0 13px; color: #b4c0d1; font-size: 10px; line-height: 1.6 }
+.rival-advice .btn { width: 100%; margin-bottom: 8px }
+.rival-advice .mini-action { width: 100% }
+.risk-badge { flex: 0 0 auto; padding: 6px 9px; border-radius: 999px; background: rgba(245,158,11,.12); color: #fcd34d; font-size: 8px; font-weight: 950; letter-spacing: .05em }
+.risk-badge.tinggi { background: rgba(239,68,68,.14); color: #fca5a5 }
+.risk-badge.terkendali { background: rgba(16,185,129,.12); color: #6ee7b7 }
+.risk-badge.data-minim { background: rgba(6,182,212,.11); color: #67e8f9 }
+
+/* Camera reporting */
+.camera-quick { color: #e2e8f0 }
+.camera-quick .ui-icon { width: 25px; height: 25px; color: #22d3ee }
+.camera-field { display: grid; grid-template-columns: auto 1fr; gap: 11px; align-items: start; padding: 14px; margin-top: 15px; border: 1px dashed rgba(6,182,212,.3); border-radius: 14px; background: rgba(6,182,212,.045) }
+.camera-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: rgba(6,182,212,.1); color: #67e8f9 }
+.camera-field strong { display: block; font-size: 11px }
+.camera-field p { margin: 4px 0 0; color: #7f8da2; font-size: 9px; line-height: 1.5 }
+.camera-trigger { grid-column: 1 / -1; width: 100%; cursor: pointer }
+.camera-field input[type=file] { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none }
+.camera-preview { grid-column: 1 / -1; display: flex; align-items: center; gap: 11px; padding: 9px; border: 1px solid var(--line); border-radius: 11px; background: #080f1b }
+.camera-preview img { width: 72px; height: 58px; border-radius: 8px; object-fit: cover }
+.camera-preview strong, .camera-preview small { display: block; max-width: 210px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis }
+.camera-preview strong { font-size: 9px }
+.camera-preview small { margin-top: 4px; color: #6ee7b7; font-size: 8px }
+
+/* Intelligence Strategy Engine */
+.strategy-engine { display: grid; gap: 12px }
+.strategy-header { position: relative; overflow: hidden; padding: 24px 20px; border: 1px solid rgba(99,102,241,.24); border-radius: 18px; background: radial-gradient(circle at 90% 0,rgba(99,102,241,.2),transparent 35%),linear-gradient(135deg,#17193a,#0f172a 52%,#07131e) }
+.strategy-header h1 { max-width: 760px; margin: 13px 0 8px; font-size: clamp(25px,6vw,38px); line-height: 1.08; letter-spacing: -.05em }
+.strategy-header p { max-width: 760px; margin: 0; color: #a5b4c7; font-size: 11px; line-height: 1.65 }
+.gemini-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border: 1px solid rgba(129,140,248,.3); border-radius: 999px; background: rgba(79,70,229,.16); color: #c7d2fe; font-size: 8px; font-weight: 950; letter-spacing: .07em; box-shadow: 0 0 24px rgba(99,102,241,.12) }
+.gemini-badge .ui-icon { width: 13px; height: 13px }
+.strategy-form { padding: 18px }
+.strategy-form-grid { display: grid; gap: 0 }
+.strategy-form textarea { min-height: 130px }
+.strategy-submit { width: 100%; margin-top: 4px }
+.engine-note { display: block; margin-top: 10px; color: #64748b; font-size: 8px; text-align: center }
+.strategy-placeholder { display: grid; justify-items: center; padding: 38px 20px; border: 1px dashed rgba(129,140,248,.22); border-radius: 16px; background: rgba(30,27,75,.1); text-align: center }
+.strategy-placeholder h2 { margin: 13px 0 6px; font-size: 17px }
+.strategy-placeholder p { max-width: 460px; margin: 0; color: #7f8da2; font-size: 10px; line-height: 1.55 }
+.strategy-results { overflow: hidden; border: 1px solid rgba(129,140,248,.25); border-radius: 18px; background: linear-gradient(145deg,#10182b,#090f1c); box-shadow: 0 20px 55px rgba(0,0,0,.2) }
+.strategy-result-head { display: flex; justify-content: space-between; gap: 13px; padding: 20px; border-bottom: 1px solid var(--line); background: rgba(49,46,129,.14) }
+.strategy-result-head span:first-child { color: #a5b4fc; font-size: 8px; font-weight: 950; letter-spacing: .1em }
+.strategy-result-head h2 { margin: 7px 0 4px; font-size: 18px }
+.strategy-result-head p { margin: 0; color: #7f8da2; font-size: 9px }
+.analysis-section { padding: 19px 20px; border-bottom: 1px solid var(--line) }
+.analysis-section > span { color: #818cf8; font-size: 8px; font-weight: 950; letter-spacing: .13em }
+.analysis-section h3 { margin: 6px 0 10px; font-size: 14px }
+.analysis-section p, .analysis-section li { color: #aebacd; font-size: 10px; line-height: 1.65 }
+.analysis-section ol { display: grid; gap: 8px; padding-left: 20px; margin: 0 }
+.analysis-section li::marker { color: #f59e0b; font-weight: 900 }
+.risk-section { background: rgba(127,29,29,.055) }
+.command-draft { border-bottom: 0 }
+.command-draft pre { overflow: auto; padding: 15px; border: 1px solid rgba(6,182,212,.18); border-radius: 12px; background: #050b14; color: #cbd5e1; font: 10px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace; white-space: pre-wrap }
+.strategy-actions { display: grid; gap: 8px; margin-top: 12px }
+.whatsapp-button { background: linear-gradient(135deg,#047857,#10b981); color: #ecfdf5 }
+.strategy-results footer { padding-bottom: 18px }
+
+/* Hamburger drawer */
+.menu-drawer-backdrop { position: fixed; z-index: 70; inset: 0 }
+.drawer-scrim { position: absolute; inset: 0; width: 100%; border: 0; background: rgba(0,0,0,.72); backdrop-filter: blur(5px) }
+.menu-drawer { position: absolute; top: 0; bottom: 0; left: 0; width: min(86vw,340px); overflow-y: auto; padding: 20px 15px max(18px,env(safe-area-inset-bottom)); border-right: 1px solid var(--line-strong); background: linear-gradient(180deg,#0f172a,#060b14); box-shadow: 24px 0 65px rgba(0,0,0,.45); animation: drawer-in .2s ease }
+@keyframes drawer-in { from { transform: translateX(-24px); opacity: .5 } }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 22px }
+.drawer-head .side-brand { display: flex; align-items: center; gap: 10px; margin: 0 }
+.drawer-head .brand-mark { width: 42px; height: 42px; margin: 0; border-radius: 13px; font-size: 18px }
+.drawer-head strong, .drawer-head small { display: block }
+.drawer-head small { margin-top: 3px; color: #64748b; font-size: 9px }
+.drawer-nav { display: grid; gap: 6px }
+.drawer-nav .nav-btn { display: flex; justify-content: flex-start; gap: 12px; min-height: 47px; padding: 0 13px; border-radius: 11px; font-size: 11px }
+.drawer-nav .nav-btn.active { border: 1px solid rgba(245,158,11,.14); background: rgba(245,158,11,.09) }
+.drawer-shortcuts { display: grid; gap: 8px; padding: 16px 0; margin-top: 16px; border-top: 1px solid var(--line) }
+.drawer-logout { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 43px; border: 1px solid rgba(239,68,68,.25); border-radius: 999px; background: rgba(127,29,29,.11); color: #fca5a5; font-size: 10px; font-weight: 850 }
+.drawer-logout .ui-icon { width: 17px; height: 17px }
+.menu-drawer footer { margin-top: 15px }
+
 /* Internal pages, forms, lists */
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin: 3px 0 18px }
 .page-head h1 { margin: 4px 0 5px; font-size: 25px; letter-spacing: -.045em }
@@ -275,6 +363,9 @@ footer { padding: 28px 12px 8px; color: #94a3b8; font-size: 11px; text-align: ce
   .metric-grid { grid-template-columns: repeat(4,minmax(0,1fr)) }
   .metric-card { min-height: 160px }
   .analytics-grid, .reports-grid { grid-template-columns: repeat(2,minmax(0,1fr)) }
+  .rival-layout { grid-template-columns: minmax(0,1.35fr) minmax(260px,.65fr); align-items: stretch }
+  .strategy-form-grid { grid-template-columns: 1fr 1fr; gap: 0 13px }
+  .strategy-actions { grid-template-columns: repeat(3,1fr) }
   .ai-strategy-card { grid-template-columns: auto 1fr; align-items: start; padding: 25px }
   .ai-copy .hero-actions .btn { flex: none }
   .quick-grid { grid-template-columns: repeat(4,1fr) }
