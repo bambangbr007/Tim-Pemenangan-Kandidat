@@ -16,7 +16,7 @@ const TOTAL_DPT = 78500
 const state = {
   session: null, profile: null, page: 'dashboard', busy: false, realtime: null,
   voters: [], activities: [], reports: [], commands: [], opponents: [], profiles: [], teams: [], notifications: [],
-  filters: { voter: '', status: '', report: '' }
+  filters: { voter: '', status: '', report: '' }, strategy: null
 }
 
 const esc = (value = '') => String(value).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]))
@@ -37,6 +37,7 @@ const icon = (name, cls = '') => {
     clipboard: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M9 10h6M9 14h6M9 18h4"/>',
     sparkle: '<path d="m12 3-1.4 4.1L6.5 8.5l4.1 1.4L12 14l1.4-4.1 4.1-1.4-4.1-1.4L12 3Z"/><path d="m19 14-.8 2.2L16 17l2.2.8L19 20l.8-2.2L22 17l-2.2-.8L19 14ZM5 14l-.7 1.8-1.8.7 1.8.7L5 19l.7-1.8 1.8-.7-1.8-.7L5 14Z"/>',
     menu: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+    hamburger: '<path d="M4 6h16M4 12h16M4 18h16"/>',
     bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
     user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
     help: '<circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 1 1 3.6 2.1c-.9.5-1.4 1-1.4 2M12 17h.01"/>',
@@ -47,6 +48,10 @@ const icon = (name, cls = '') => {
     map: '<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/><path d="M9 3v15M15 6v15"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     refresh: '<path d="M20 6v5h-5M4 18v-5h5"/><path d="M18.5 9A7 7 0 0 0 6.2 6.2L4 9m16 6-2.2 2.8A7 7 0 0 1 5.5 15"/>'
+    ,camera: '<path d="M14.5 5 13 3h-2L9.5 5H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4.5Z"/><circle cx="12" cy="12" r="4"/>'
+    ,copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/>'
+    ,save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/>'
+    ,whatsapp: '<path d="M20.5 11.5a8.5 8.5 0 0 1-12.6 7.4L3 20l1.2-4.6A8.5 8.5 0 1 1 20.5 11.5Z"/><path d="M8.5 8.5c.5 3 2 4.5 5 5"/>'
   }
   return `<svg class="ui-icon ${cls}" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || paths.sparkle}</svg>`
 }
@@ -133,10 +138,18 @@ function navButtons(cls = '') {
 
 function renderShell() {
   app.innerHTML = `<div class="shell"><aside class="desktop-side"><div class="side-brand"><span class="brand-mark">C</span><div><strong>Command Center</strong><small>Pantauan Pemenangan</small></div></div><nav class="side-nav">${navButtons()}</nav><div class="side-status"><i></i><div><strong>Realtime tersambung</strong><small>Database & lapangan aktif</small></div></div><div class="side-user"><div class="avatar">${initials(state.profile.full_name)}</div><div><strong>${esc(state.profile.full_name)}</strong><small>${esc(roleName(state.profile.role))}</small></div></div></aside>
-    <header class="topbar"><div class="top-profile"><div class="avatar">${initials(state.profile.full_name)}</div><div class="topbar-title"><strong>${esc(state.profile.full_name)}</strong><small>CANDIDATE COMMAND CENTER V2.0</small></div></div><div class="top-live"><i></i> REAL-TIME</div><button class="icon-btn bell-button" data-action="notifications" aria-label="Notifikasi">${icon('bell')}<b class="badge ${unreadCount() ? '' : 'hidden'}" id="notif-badge">${unreadCount()}</b></button><button class="exit-button" data-action="logout" aria-label="Keluar dari aplikasi">${icon('logout')}<span>Keluar</span></button></header>
+    <header class="topbar"><button class="icon-btn hamburger-button" data-action="open-menu" aria-label="Buka menu utama">${icon('hamburger')}</button><div class="top-profile"><div class="avatar">${initials(state.profile.full_name)}</div><div class="topbar-title"><strong>${esc(state.profile.full_name)}</strong><small>CANDIDATE COMMAND CENTER V2.0</small></div></div><div class="top-live"><i></i> REAL-TIME</div><button class="icon-btn bell-button" data-action="notifications" aria-label="Notifikasi">${icon('bell')}<b class="badge ${unreadCount() ? '' : 'hidden'}" id="notif-badge">${unreadCount()}</b></button><button class="exit-button" data-action="logout" aria-label="Keluar dari aplikasi">${icon('logout')}<span>Keluar</span></button></header>
     <main class="main layout" id="page"></main><button class="fab no-print" id="fab" data-action="add" aria-label="Tambah data">＋</button>
     <nav class="bottom-nav">${navButtons()}</nav><footer>BBR @ SYNERGY smart system</footer></div>`
   renderPage()
+}
+
+function openMenuDrawer() {
+  document.querySelector('.menu-drawer-backdrop')?.remove()
+  const wrap = document.createElement('div')
+  wrap.className = 'menu-drawer-backdrop'
+  wrap.innerHTML = `<button class="drawer-scrim" data-action="close-menu" aria-label="Tutup menu"></button><aside class="menu-drawer" role="dialog" aria-modal="true" aria-label="Menu utama"><div class="drawer-head"><div class="side-brand"><span class="brand-mark">C</span><div><strong>Command Center</strong><small>${esc(roleName(state.profile.role))}</small></div></div><button class="close" data-action="close-menu" aria-label="Tutup">×</button></div><nav class="drawer-nav">${navButtons('drawer-item')}</nav><div class="drawer-shortcuts"><button class="btn action-cyan" data-action="add-report">${icon('camera')} Laporan Kamera</button>${can('admin', 'owner') ? `<button class="btn action-amber" data-page="commands">${icon('sparkle')} Strategy Engine</button>` : ''}</div><button class="drawer-logout" data-action="logout">${icon('logout')} Keluar ke Login</button><footer>BBR @ SYNERGY smart system</footer></aside>`
+  document.body.append(wrap)
 }
 
 function unreadCount() { return state.notifications.filter(n => !n.read_at).length }
@@ -166,8 +179,28 @@ function dashboardPage() {
       <article class="card chart-card"><div class="card-heading"><div><span>KLASIFIKASI SUARA</span><small>Komposisi data terpetakan</small></div><button class="mini-action" data-page="voters">Detail</button></div>${classificationChart(counts, total)}</article>
       <article class="card chart-card"><div class="card-heading"><div><span>SEBARAN PEMILIH PER WILAYAH</span><small>Basis data desa / kelurahan</small></div>${icon('map')}</div>${territoryChart()}</article>
     </section>
+    ${can('admin', 'owner') ? rivalComparisonCard(counts) : ''}
     <section class="card ai-strategy-card"><div class="ai-orb">${icon('sparkle')}</div><div class="ai-copy"><span class="command-badge">${icon('sparkle')} COMMAND PANEL</span><h2>AI Strategy Assistant</h2><p>Konsultasi situasi lapangan, respon taktis pergerakan lawan, dan otomatisasi pembuatan pesan komando WhatsApp ke Korlap Desa.</p><div class="advisor-insight">${esc(advisorText(counts, fieldPct))}</div><div class="hero-actions"><button class="btn action-amber" data-action="send-command">${icon('send')} Kirim Perintah ke Tim</button><button class="btn btn-ghost" data-action="check-ai-data">${icon('database')} Cek Data Dasar AI</button></div></div></section>
     <section class="bento-grid reports-grid"><article class="card report-panel"><div class="card-heading"><div><span>LAPORAN KEJADIAN PENTING</span><small>Insiden yang perlu tindak lanjut</small></div><b class="alert-count">${state.reports.filter(r => r.report_type === 'incident').length}</b></div><div class="compact-list">${incidentItems()}</div></article><article class="card report-panel"><div class="card-heading"><div><span>LAPORAN LAPANGAN TERAKHIR</span><small>Pembaruan kegiatan terkini</small></div><button class="mini-action" data-page="field">Semua</button></div><div class="compact-list">${latestFieldItems()}</div></article></section>`
+}
+
+function rivalComparisonCard(counts) {
+  const ourPct = state.voters.length ? Math.round(counts.support / state.voters.length * 100) : 0
+  const latest = new Map()
+  for (const row of state.opponents) if (!latest.has(row.opponent_name)) latest.set(row.opponent_name, Number(row.estimated_support || 0))
+  const rivals = [...latest.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4)
+  const leader = rivals[0] || ['Belum ada data rival', 0]
+  const gap = ourPct - leader[1]
+  const risk = !rivals.length ? 'DATA MINIM' : gap >= 8 ? 'TERKENDALI' : gap >= 0 ? 'WASPADA' : 'TINGGI'
+  const recommendation = !rivals.length
+    ? 'Tambahkan snapshot rival agar mesin dapat menghitung selisih dukungan dan risiko secara akurat.'
+    : gap < 0
+      ? `Kita tertinggal ${Math.abs(gap)} poin dari ${leader[0]}. Prioritaskan swing voter di desa dengan basis terdata terbesar dan tingkatkan frekuensi door-to-door.`
+      : gap < 8
+        ? `Keunggulan baru ${gap} poin. Jaga pendukung aktif dan siapkan respons cepat terhadap pergerakan ${leader[0]}.`
+        : `Keunggulan ${gap} poin cukup sehat. Fokus pada validasi ulang pendukung dan cegah perpindahan suara menjelang hari pemilihan.`
+  const rows = [['Tim Kita', ourPct], ...rivals]
+  return `<section class="card rival-card"><div class="card-heading"><div><span>PERBANDINGAN TIM KITA VS RIVAL</span><small>Ringkasan khusus Owner / Admin</small></div><div class="risk-badge ${risk.toLowerCase().replace(' ', '-')}">RISIKO ${risk}</div></div><div class="rival-layout"><div class="rival-bars">${rows.map(([name, value], index) => `<div class="rival-row"><div><strong>${esc(name)}</strong><b>${value}%</b></div><div class="rival-track"><i class="${index ? 'rival' : 'ours'}" style="width:${Math.max(1, Math.min(100, value))}%"></i></div></div>`).join('')}</div><div class="rival-advice"><span>${icon('sparkle')} REKOMENDASI KEPUTUSAN</span><p>${esc(recommendation)}</p><button class="btn action-amber" data-page="commands">Buka Analisis Risiko AI</button><button class="mini-action" data-action="add-opponent">＋ Data Rival</button></div></div></section>`
 }
 
 function metricCard(type, label, value, description, iconName) {
@@ -228,7 +261,7 @@ function voterItem(v) {
 }
 
 function fieldPage() {
-  return `<div class="page-head"><div><h1>Kinerja Lapangan</h1><p>Tugas, progres, dan bukti kegiatan tim.</p></div></div><section class="grid quick-grid"><button class="card card-pad quick btn" data-action="add-activity"><span>✓</span><strong>Tambah Tugas</strong><small class="muted">Rencana dan progres</small></button><button class="card card-pad quick btn" data-action="add-report"><span>▣</span><strong>Kirim Laporan</strong><small class="muted">Foto/video singkat</small></button></section><div class="section-title"><h2>Daftar Tugas</h2></div><section class="list">${state.activities.map(activityItem).join('') || empty('Belum ada tugas lapangan.')}</section><div class="section-title"><h2>Laporan Lapangan</h2></div><section class="list">${state.reports.map(reportItem).join('') || empty('Belum ada laporan lapangan.')}</section>`
+  return `<div class="page-head"><div><h1>Kinerja Lapangan</h1><p>Tugas, progres, foto, dan bukti kegiatan tersinkron ke akun pusat.</p></div></div><section class="grid quick-grid"><button class="card card-pad quick btn" data-action="add-activity"><span>✓</span><strong>Tambah Tugas</strong><small class="muted">Rencana dan progres</small></button><button class="card card-pad quick btn camera-quick" data-action="add-report">${icon('camera')}<strong>Buka Kamera & Lapor</strong><small class="muted">Foto langsung ke pusat</small></button></section><div class="section-title"><h2>Daftar Tugas</h2></div><section class="list">${state.activities.map(activityItem).join('') || empty('Belum ada tugas lapangan.')}</section><div class="section-title"><h2>Laporan Lapangan</h2></div><section class="list">${state.reports.map(reportItem).join('') || empty('Belum ada laporan lapangan.')}</section>`
 }
 
 function activityItem(a) {
@@ -240,10 +273,35 @@ function reportItem(r) {
 }
 
 function commandsPage() {
-  const counts = Object.fromEntries(['support', 'swing', 'refuse'].map(s => [s, state.voters.filter(v => v.preference === s).length]))
-  const done = state.activities.filter(a => a.status === 'done').length
-  const fieldPct = state.activities.length ? Math.round(done / state.activities.length * 100) : 0
-  return `<section class="page-head command-page-head"><div><span class="eyebrow">INTELLIGENCE & COMMAND</span><h1>AI Strategy Advisor</h1><p>Analisis otomatis berdasarkan data pemilih, laporan, dan kinerja lapangan.</p></div>${can('admin', 'owner') ? `<button class="btn action-amber" data-action="send-command">${icon('send')} Buat Komando</button>` : ''}</section><section class="card ai-strategy-card standalone"><div class="ai-orb">${icon('sparkle')}</div><div class="ai-copy"><span class="command-badge">${icon('sparkle')} ANALISIS TERKINI</span><h2>Rekomendasi Taktis</h2><p>${esc(advisorText(counts, fieldPct))}</p><div class="hero-actions"><button class="btn action-cyan" data-action="check-ai-data">${icon('database')} Tinjau Data Dasar</button></div></div></section><div class="section-title"><h2>Riwayat Komando Tim</h2></div><section class="list command-list">${state.commands.map(c => `<article class="list-item"><span class="command-symbol">${c.priority === 'urgent' ? '!' : '↗'}</span><div class="list-main"><strong>${esc(c.title)}</strong><p>${esc(c.message)}</p><div class="meta"><span class="chip ${statusChip(c.priority)}">${esc(c.priority)}</span><span class="chip">${dateId(c.created_at)}</span>${c.whatsapp_message ? `<a class="chip whatsapp" href="https://wa.me/?text=${encodeURIComponent(c.whatsapp_message)}" target="_blank" rel="noopener">Bagikan WhatsApp</a>` : ''}</div></div></article>`).join('') || empty('Belum ada komando. Buat arahan pertama untuk tim lapangan.')}</section>`
+  if (!can('admin', 'owner')) return `<section class="page-head"><div><span class="eyebrow">PUSAT KOMANDO</span><h1>Instruksi Tim</h1><p>Daftar arahan yang diterbitkan Owner dan Admin.</p></div></section>${commandHistory()}`
+  const categories = ['Aksi Money Politics / Sembako Tim Lawan', 'Penurunan Suara Pendukung & Keraguan Pemilih', 'Tingginya Swing Voter di TPS Kunci', 'Perusakan Alat Peraga Kampanye', 'Isu Black Campaign', 'Persiapan Debat & Penguasaan Isu Daerah']
+  const actualAreas = [...new Set(state.voters.map(v => v.village).filter(Boolean))]
+  const areas = [...new Set([...actualAreas, 'Desa Sukamaju', 'Desa Kencana', 'Desa Murni', 'Seluruh Wilayah Pemilihan'])]
+  return `<section class="strategy-engine"><div class="strategy-header"><span class="gemini-badge">${icon('sparkle')} INTELLIGENCE STRATEGY ENGINE · GEMINI-READY</span><h1>Pertimbangan & Strategi AI Pemenangan</h1><p>Asisten kecerdasan buatan untuk Owner & Kandidat. Dapatkan analisis taktis, rekomendasi aksi relawan, dan draf instruksi komando ke WhatsApp.</p></div><form class="card strategy-form" id="strategy-form"><div class="strategy-form-grid"><div class="field"><label for="strategy_category">Kategori Masalah Lapangan</label><select class="input" id="strategy_category" name="strategy_category" required>${categories.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></div><div class="field"><label for="strategy_area">Wilayah Fokus / Target Desa</label><select class="input" id="strategy_area" name="strategy_area" required>${areas.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></div></div><div class="field"><label for="strategy_detail">Rincian Masalah Spesifik</label><textarea class="input" id="strategy_detail" name="strategy_detail" required maxlength="1800" placeholder="Tuliskan kronologi riil, waktu kejadian, aktor yang terlibat, dan respons warga…"></textarea></div><button class="btn action-amber strategy-submit" type="submit">${icon('sparkle')} Hasilkan Pertimbangan & Strategi AI</button><small class="engine-note">Analisis instan menggunakan data internal yang diizinkan RLS. Kunci layanan eksternal tidak pernah disimpan di browser.</small></form>${state.strategy ? strategyResult(state.strategy) : `<section class="strategy-placeholder"><div class="ai-orb">${icon('sparkle')}</div><h2>Mesin siap menganalisis</h2><p>Pilih masalah, wilayah, dan masukkan kronologi untuk menghasilkan empat lapisan analisis strategis.</p></section>`}</section><div class="section-title"><h2>Riwayat Komando Tersimpan</h2></div>${commandHistory()}`
+}
+
+function commandHistory() {
+  return `<section class="list command-list">${state.commands.map(c => `<article class="list-item"><span class="command-symbol">${c.priority === 'urgent' ? '!' : '↗'}</span><div class="list-main"><strong>${esc(c.title)}</strong><p>${esc(c.message)}</p><div class="meta"><span class="chip ${statusChip(c.priority)}">${esc(c.priority)}</span><span class="chip">${dateId(c.created_at)}</span>${c.whatsapp_message ? `<a class="chip whatsapp" href="https://wa.me/?text=${encodeURIComponent(c.whatsapp_message)}" target="_blank" rel="noopener">Bagikan WhatsApp</a>` : ''}</div></div></article>`).join('') || empty('Belum ada komando. Hasil strategi dapat disimpan di sini.')}</section>`
+}
+
+function generateStrategy(category, area, detail) {
+  const support = state.voters.filter(v => v.preference === 'support').length
+  const swing = state.voters.filter(v => v.preference === 'swing').length
+  const incidents = state.reports.filter(r => r.report_type === 'incident').length
+  const urgent = /Money|Black|Perusakan/i.test(category)
+  const situation = `${category} di ${area} berpotensi memengaruhi persepsi keamanan, kepercayaan, dan keteguhan pilihan warga. Kronologi yang dilaporkan: ${detail}. Pola ini perlu dibaca sebagai upaya merebut perhatian, membangun keraguan, atau melemahkan koordinasi relawan. Basis saat ini mencatat ${support} pendukung dan ${swing} swing voter, sehingga respons harus terukur, legal, dan tidak reaktif.`
+  const risks = urgent
+    ? ['Jangka pendek: eskalasi emosi, penyebaran bukti tanpa verifikasi, dan konflik antar-relawan.', 'Jangka panjang: normalisasi pelanggaran, penurunan kepercayaan kepada kandidat, serta potensi kehilangan basis suara jika narasi lawan tidak diimbangi.']
+    : ['Jangka pendek: kebingungan pemilih dan turunnya intensitas dukungan di wilayah fokus.', 'Jangka panjang: swing voter berpindah, relawan kehilangan ritme, dan selisih elektabilitas semakin sulit dipulihkan.']
+  const tactics = urgent
+    ? ['Verifikasi kronologi melalui dua sumber lapangan dan simpan bukti asli secara privat.', 'Aktifkan korlap desa untuk pemetaan titik kejadian tanpa konfrontasi langsung.', 'Lakukan kunjungan silaturahmi dan edukasi politik santun kepada warga terdampak.', 'Koordinasikan respons hukum/etik melalui tim resmi; hindari penyebaran tuduhan yang belum terbukti.', 'Pantau perubahan sikap pemilih selama 48 jam dan laporkan hasilnya ke pusat komando.']
+    : ['Petakan TPS dengan swing voter tertinggi dan tetapkan penanggung jawab harian.', 'Laksanakan door-to-door berbasis isu lokal dengan pesan singkat yang konsisten.', 'Perkuat alat peraga dan kegiatan sosial di titik dengan penurunan interaksi.', 'Hubungi ulang pendukung untuk validasi komitmen dan identifikasi keberatan terbaru.', 'Evaluasi hasil setiap malam dan alihkan relawan ke wilayah dengan konversi terbaik.']
+  const draft = `KOMANDO RESMI TIM PEMENANGAN\n\nFokus: ${category}\nWilayah: ${area}\n\nKepada seluruh Korlap dan relawan, lakukan langkah berikut:\n${tactics.map((x, i) => `${i + 1}. ${x}`).join('\n')}\n\nJaga ketertiban, hindari provokasi, dokumentasikan setiap kegiatan, dan kirim laporan terverifikasi ke Pusat Komando.\n\n— ${state.profile.full_name}`
+  return { category, area, detail, situation, risks, tactics, draft, riskLevel: urgent || incidents > 2 ? 'TINGGI' : swing > support * .5 ? 'SEDANG' : 'TERKENDALI' }
+}
+
+function strategyResult(result) {
+  return `<section class="strategy-results"><div class="strategy-result-head"><div><span>HASIL INTELLIGENCE ENGINE</span><h2>${esc(result.category)}</h2><p>${esc(result.area)} · Risiko ${esc(result.riskLevel)}</p></div><span class="risk-badge ${result.riskLevel.toLowerCase()}">${esc(result.riskLevel)}</span></div><article class="analysis-section"><span>SEKSI 1</span><h3>Analisis Situasi & Pemetaan Lapangan</h3><p>${esc(result.situation)}</p></article><article class="analysis-section risk-section"><span>SEKSI 2</span><h3>Analisis Risiko Lapangan</h3>${result.risks.map(x => `<p>${esc(x)}</p>`).join('')}</article><article class="analysis-section"><span>SEKSI 3</span><h3>Rekomendasi Tanggap Segera</h3><ol>${result.tactics.map(x => `<li>${esc(x)}</li>`).join('')}</ol></article><article class="analysis-section command-draft"><span>SEKSI 4</span><h3>Draf Pesan Komando WhatsApp Korlap</h3><pre id="strategy-draft">${esc(result.draft)}</pre><div class="strategy-actions"><button class="btn btn-ghost" data-action="copy-strategy">${icon('copy')} Salin Teks</button><button class="btn action-amber" data-action="save-strategy">${icon('save')} Simpan ke Pusat Komando</button><button class="btn whatsapp-button" data-action="whatsapp-strategy">${icon('whatsapp')} Buka & Kirim via WhatsApp</button></div></article><footer>BBR @ SYNERGY smart system</footer></section>`
 }
 
 function morePage() {
@@ -272,7 +330,22 @@ function activityModal(a = {}) {
 }
 
 function reportModal() {
-  openModal('Kirim Laporan Lapangan', `${field('title', 'Judul laporan', '', 'required maxlength="160"')}<div class="field"><label for="summary">Ringkasan hasil</label><textarea class="input" id="summary" name="summary" required maxlength="1500"></textarea></div><div class="form-grid two">${selectField('report_type', 'Jenis laporan', [['activity', 'Kegiatan'], ['incident', 'Kejadian penting'], ['survey', 'Kondisi lapangan']], 'activity')}${field('report_date', 'Tanggal kegiatan', today(), 'type="date" required')}</div><div class="field"><label for="media">Bukti foto/video (maks. 20 MB)</label><input class="input" id="media" name="media" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"></div><div class="actions"><button class="btn btn-cyan" type="submit">Kirim Laporan</button></div>`, 'report-form')
+  openModal('Kirim Laporan ke Pusat', `${field('title', 'Judul laporan', '', 'required maxlength="160"')}<div class="field"><label for="summary">Ringkasan hasil</label><textarea class="input" id="summary" name="summary" required maxlength="1500" placeholder="Jelaskan kegiatan, lokasi, hasil, dan temuan penting…"></textarea></div><div class="form-grid two">${selectField('report_type', 'Jenis laporan', [['activity', 'Kegiatan'], ['incident', 'Kejadian penting'], ['survey', 'Kondisi lapangan']], 'activity')}${field('report_date', 'Tanggal kegiatan', today(), 'type="date" required')}</div><div class="camera-field"><div class="camera-icon">${icon('camera')}</div><div><strong>Foto Bukti Lapangan</strong><p>Pada HP, tombol ini akan membuka kamera belakang. Foto disimpan privat dan hanya dapat dibuka melalui tautan aman sementara.</p></div><label class="btn action-cyan camera-trigger" for="media">${icon('camera')} Buka Kamera / Pilih Foto</label><input id="media" name="media" type="file" accept="image/jpeg,image/png,image/webp" capture="environment"><div id="media-preview" class="camera-preview hidden"></div></div><div class="actions"><button class="btn btn-cyan" type="submit">${icon('send')} Kirim Laporan ke Pusat</button></div>`, 'report-form')
+}
+
+async function optimizeImage(file) {
+  if (!file?.type?.startsWith('image/') || file.size < 800 * 1024) return file
+  try {
+    const bitmap = await createImageBitmap(file)
+    const ratio = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(bitmap.width * ratio); canvas.height = Math.round(bitmap.height * ratio)
+    canvas.getContext('2d', { alpha: false }).drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    bitmap.close()
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .82))
+    if (!blob) return file
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, '') || 'foto-lapangan'}.jpg`, { type: 'image/jpeg', lastModified: Date.now() })
+  } catch { return file }
 }
 
 function commandModal() {
@@ -297,32 +370,36 @@ async function save(table, payload, id, button) {
 document.addEventListener('click', async e => {
   const el = e.target.closest('[data-action],[data-page],[data-auth-tab]'); if (!el) return
   if (el.dataset.authTab) return authScreen(el.dataset.authTab)
-  if (el.dataset.page) { state.page = el.dataset.page; el.closest('.modal-backdrop')?.remove(); renderPage(); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
+  if (el.dataset.page) { state.page = el.dataset.page; el.closest('.modal-backdrop')?.remove(); document.querySelector('.menu-drawer-backdrop')?.remove(); renderPage(); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
   const action = el.dataset.action
   try {
     if (action === 'close-modal') el.closest('.modal-backdrop')?.remove()
+    if (action === 'open-menu') openMenuDrawer()
+    if (action === 'close-menu') document.querySelector('.menu-drawer-backdrop')?.remove()
     if (action === 'logout') {
       const { error } = await supabase.auth.signOut()
       if (error) throw error
       if (state.realtime) { supabase.removeChannel(state.realtime); state.realtime = null }
-      clearCampaignData(); state.session = null; state.profile = null; authScreen(); return
+      clearCampaignData(); state.strategy = null; state.session = null; state.profile = null; authScreen(); return
     }
     if (action === 'refresh') { await loadAll(true); renderPage(); toast('Data sudah diperbarui.') }
     if (action === 'print') window.print()
     if (action === 'export-voters') exportCsv()
     if (action === 'add-voter') voterModal()
-    if (action === 'add-report') reportModal()
+    if (action === 'add-report') { document.querySelector('.menu-drawer-backdrop')?.remove(); reportModal() }
     if (action === 'send-command') { if (can('admin', 'owner')) commandModal(); else toast('Pembuatan komando hanya untuk Owner atau Admin.', 'error') }
     if (action === 'check-ai-data') {
       const counts = Object.fromEntries(['support', 'swing', 'refuse', 'unknown'].map(s => [s, state.voters.filter(v => v.preference === s).length]))
       openModal('Data Dasar AI Strategy', `<section class="ai-data-grid"><div><span>Total pemilih</span><strong>${rupiah(state.voters.length)}</strong></div><div><span>Pendukung</span><strong>${rupiah(counts.support)}</strong></div><div><span>Swing voter</span><strong>${rupiah(counts.swing)}</strong></div><div><span>Laporan lapangan</span><strong>${rupiah(state.reports.length)}</strong></div></section><div class="info-box">Analisis menggunakan data yang diizinkan oleh hak akses akun dan RLS Supabase. Data pribadi tidak dikirim ke layanan AI eksternal.</div><button class="btn action-cyan btn-block" data-page="voters">Buka Data Pemilih</button>`)
     }
+    if (action === 'copy-strategy' && state.strategy) { await navigator.clipboard.writeText(state.strategy.draft); toast('Draf komando berhasil disalin.') }
+    if (action === 'save-strategy' && state.strategy) await save('commands', { title: `Strategi: ${state.strategy.category}`, message: state.strategy.situation, priority: state.strategy.riskLevel === 'TINGGI' ? 'urgent' : 'normal', whatsapp_message: state.strategy.draft, created_by: state.profile.id }, null, el)
+    if (action === 'whatsapp-strategy' && state.strategy) window.open(`https://wa.me/?text=${encodeURIComponent(state.strategy.draft)}`, '_blank', 'noopener')
     if (action === 'add') ({ voters: () => voterModal(), field: () => reportModal(), commands: commandModal }[state.page]?.())
     if (action === 'edit-voter') voterModal(state.voters.find(v => v.id === el.dataset.id))
     if (action === 'delete-voter' && confirm('Hapus data pemilih ini? Tindakan tercatat dalam audit.')) { const { error } = await supabase.from('voters').delete().eq('id', el.dataset.id); if (error) throw error; el.closest('.modal-backdrop')?.remove(); await loadAll(true); renderPage(); toast('Data dihapus.') }
     if (action === 'add-activity') activityModal()
     if (action === 'edit-activity') activityModal(state.activities.find(a => a.id === el.dataset.id))
-    if (action === 'add-report') reportModal()
     if (action === 'add-opponent') openModal('Data Kondisi Lawan', `${field('opponent_name', 'Nama kandidat/tim lawan', '', 'required maxlength="120"')}${field('estimated_support', 'Estimasi dukungan (%)', '', 'type="number" min="0" max="100" required')}<div class="field"><label for="notes">Catatan sumber lapangan</label><textarea class="input" id="notes" name="notes" maxlength="600"></textarea></div><div class="actions"><button class="btn btn-primary">Simpan</button></div>`, 'opponent-form')
     if (action === 'add-team') openModal('Tambah Tim', `${field('name', 'Nama tim', '', 'required maxlength="100"')}${field('area', 'Wilayah kerja', '', 'maxlength="160"')}<div class="actions"><button class="btn btn-primary">Simpan Tim</button></div>`, 'team-form')
     if (action === 'approve-user') { const role = document.querySelector(`#role-${el.dataset.id}`).value, team_id = document.querySelector(`#team-${el.dataset.id}`).value || null; await save('profiles', { role, team_id, approval_status: 'active', approved_at: new Date().toISOString(), approved_by: state.profile.id }, el.dataset.id, el) }
@@ -336,7 +413,17 @@ document.addEventListener('click', async e => {
 })
 
 document.addEventListener('input', e => { if (e.target.id === 'voter-search') { state.filters.voter = e.target.value; clearTimeout(reloadTimer); reloadTimer = setTimeout(renderPage, 180) } })
-document.addEventListener('change', e => { if (e.target.id === 'voter-status') { state.filters.status = e.target.value; renderPage() } })
+document.addEventListener('change', e => {
+  if (e.target.id === 'voter-status') { state.filters.status = e.target.value; renderPage() }
+  if (e.target.id === 'media') {
+    const file = e.target.files?.[0], preview = document.querySelector('#media-preview')
+    if (!preview) return
+    if (!file) { preview.classList.add('hidden'); preview.innerHTML = ''; return }
+    const url = URL.createObjectURL(file)
+    preview.innerHTML = `<img src="${url}" alt="Pratinjau foto laporan"><div><strong>${esc(file.name)}</strong><small>${(file.size / 1024 / 1024).toFixed(1)} MB · siap dikirim</small></div>`
+    preview.classList.remove('hidden')
+  }
+})
 
 document.addEventListener('submit', async e => {
   e.preventDefault(); if (state.busy) return
@@ -349,11 +436,15 @@ document.addEventListener('submit', async e => {
       if (form.dataset.mode === 'register' && !result.data.session) authScreen('login', 'Pendaftaran berhasil. Periksa email untuk konfirmasi, lalu masuk.')
       return
     }
+    if (form.id === 'strategy-form') {
+      state.strategy = generateStrategy(String(fd.get('strategy_category')), String(fd.get('strategy_area')), String(fd.get('strategy_detail')).trim())
+      renderPage(); document.querySelector('.strategy-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); toast('Analisis strategi selesai dibuat.'); return
+    }
     if (form.id === 'voter-form') { const id = fd.get('id') || null; return save('voters', { full_name: fd.get('full_name').trim(), phone: fd.get('phone').trim() || null, village: fd.get('village').trim(), address: fd.get('address').trim() || null, polling_station: fd.get('polling_station').trim() || null, preference: fd.get('preference'), team_id: fd.get('team_id') || null, notes: fd.get('notes').trim() || null, updated_by: state.profile.id }, id, button) }
     if (form.id === 'activity-form') { const id = fd.get('id') || null; return save('activities', { title: fd.get('title').trim(), description: fd.get('description').trim() || null, team_id: fd.get('team_id') || null, status: fd.get('status'), progress: Number(fd.get('progress')), due_date: fd.get('due_date') || null, assignee_id: state.profile.id, updated_by: state.profile.id }, id, button) }
     if (form.id === 'report-form') {
-      setBusy(button, true, 'Mengunggah…'); let media_path = null; const file = fd.get('media')
-      if (file?.size) { if (file.size > 20 * 1024 * 1024) throw new Error('Ukuran media maksimal 20 MB.'); const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '-'); media_path = `${state.profile.id}/${Date.now()}-${safe}`; const up = await supabase.storage.from('field-evidence').upload(media_path, file, { cacheControl: '3600', upsert: false }); if (up.error) throw up.error }
+      setBusy(button, true, 'Mengirim…'); let media_path = null; let file = fd.get('media')
+      if (file?.size) { if (file.size > 20 * 1024 * 1024) throw new Error('Ukuran foto maksimal 20 MB.'); file = await optimizeImage(file); const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '-'); media_path = `${state.profile.id}/${Date.now()}-${safe}`; const up = await supabase.storage.from('field-evidence').upload(media_path, file, { cacheControl: '3600', contentType: file.type, upsert: false }); if (up.error) throw up.error }
       const { error } = await supabase.from('field_reports').insert({ title: fd.get('title').trim(), summary: fd.get('summary').trim(), report_type: fd.get('report_type'), report_date: fd.get('report_date'), media_path, reporter_id: state.profile.id, team_id: state.profile.team_id })
       if (error) { if (media_path) await supabase.storage.from('field-evidence').remove([media_path]); throw error }
       setBusy(button, false); form.closest('.modal-backdrop').remove(); await loadAll(true); renderPage(); toast('Laporan berhasil dikirim.'); return
