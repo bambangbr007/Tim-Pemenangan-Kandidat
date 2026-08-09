@@ -79,7 +79,7 @@ function returnToLogin(message = 'Sesi Anda telah berakhir. Silakan masuk kembal
   stopCamera(); capturedFiles.clear()
   if (state.realtime) { supabase.removeChannel(state.realtime); state.realtime = null }
   clearCampaignData(); state.strategy = null; state.session = null; state.profile = null
-  document.querySelector('.modal-backdrop')?.remove(); document.querySelector('.menu-drawer-backdrop')?.remove()
+  document.querySelector('.modal-backdrop')?.remove(); closeMenuDrawer()
   authScreen('login', message)
 }
 
@@ -167,12 +167,30 @@ function renderShell() {
   renderPage()
 }
 
-function openMenuDrawer() {
+function closeMenuDrawer() {
   document.querySelector('.menu-drawer-backdrop')?.remove()
+  document.body.classList.remove('drawer-open')
+}
+
+function openMenuDrawer() {
+  closeMenuDrawer()
   const wrap = document.createElement('div')
   wrap.className = 'menu-drawer-backdrop'
-  wrap.innerHTML = `<button class="drawer-scrim" data-action="close-menu" aria-label="Tutup menu"></button><aside class="menu-drawer" role="dialog" aria-modal="true" aria-label="Menu utama"><div class="drawer-head"><div class="side-brand"><span class="brand-mark">C</span><div><strong>Command Center</strong><small>${esc(roleName(state.profile.role))}</small></div></div><button class="close" data-action="close-menu" aria-label="Tutup">×</button></div><nav class="drawer-nav">${navButtons('drawer-item', true)}</nav><div class="drawer-shortcuts"><button class="btn action-cyan" data-action="add-report">${icon('camera')} Laporan Kamera</button><button class="btn action-amber" data-action="add-tps-result">${icon('vote')} Input Hasil TPS</button><button class="btn btn-ghost" data-action="emergency-report">${icon('alert')} Laporan Keselamatan</button>${can('admin', 'owner') ? `<button class="btn btn-ghost" data-page="commands">${icon('sparkle')} Strategy Engine</button>` : ''}</div><button class="drawer-logout" data-action="logout">${icon('logout')} Keluar ke Login</button><footer>BBR @ SYNERGY smart system</footer></aside>`
+  wrap.innerHTML = `<button class="drawer-scrim" data-action="close-menu" aria-label="Tutup menu"></button><aside class="menu-drawer" role="dialog" aria-modal="true" aria-label="Menu utama">
+    <div class="drawer-head"><div class="side-brand"><span class="brand-mark">C</span><div><strong>Command Center</strong><small>${esc(roleName(state.profile.role))}</small></div></div><button class="close" data-action="close-menu" aria-label="Tutup">×</button></div>
+    <div class="drawer-scroll">
+      <section class="drawer-section"><span class="drawer-section-label">NAVIGASI UTAMA</span><nav class="drawer-nav">${navButtons('drawer-item', true)}</nav></section>
+      <section class="drawer-section drawer-actions-section"><span class="drawer-section-label">AKSI CEPAT</span><div class="drawer-shortcuts">
+        <button class="drawer-action camera" data-action="add-report"><span>${icon('camera')}</span><div><strong>Laporan Kamera</strong><small>Foto lapangan</small></div></button>
+        <button class="drawer-action tps" data-action="add-tps-result"><span>${icon('vote')}</span><div><strong>Input Hasil TPS</strong><small>Rekap &amp; C1</small></div></button>
+        <button class="drawer-action emergency" data-action="emergency-report"><span>${icon('alert')}</span><div><strong>Laporan Darurat</strong><small>Keselamatan tim</small></div></button>
+        <button class="drawer-action assistance" data-page="mobilization"><span>${icon('car')}</span><div><strong>Bantuan TPS</strong><small>Armada &amp; akses</small></div></button>
+      </div></section>
+    </div>
+    <div class="drawer-bottom"><div class="drawer-account"><div class="avatar">${initials(state.profile.full_name)}</div><div><strong>${esc(state.profile.full_name)}</strong><small>${esc(roleName(state.profile.role))}</small></div><i aria-label="Akun aktif"></i></div><button class="drawer-logout" data-action="logout">${icon('logout')} Keluar ke Login</button><footer>BBR @ SYNERGY smart system</footer></div>
+  </aside>`
   document.body.append(wrap)
+  document.body.classList.add('drawer-open')
 }
 
 function unreadCount() { return state.notifications.filter(n => !n.read_at).length }
@@ -587,12 +605,12 @@ async function save(table, payload, id, button) {
 document.addEventListener('click', async e => {
   const el = e.target.closest('[data-action],[data-page],[data-auth-tab]'); if (!el) return
   if (el.dataset.authTab) return authScreen(el.dataset.authTab)
-  if (el.dataset.page) { stopCamera(); capturedFiles.clear(); state.page = el.dataset.page; el.closest('.modal-backdrop')?.remove(); document.querySelector('.menu-drawer-backdrop')?.remove(); renderPage(); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
+  if (el.dataset.page) { stopCamera(); capturedFiles.clear(); state.page = el.dataset.page; el.closest('.modal-backdrop')?.remove(); closeMenuDrawer(); renderPage(); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
   const action = el.dataset.action
   try {
     if (action === 'close-modal') { stopCamera(); capturedFiles.clear(); el.closest('.modal-backdrop')?.remove() }
     if (action === 'open-menu') openMenuDrawer()
-    if (action === 'close-menu') document.querySelector('.menu-drawer-backdrop')?.remove()
+    if (action === 'close-menu') closeMenuDrawer()
     if (action === 'logout') {
       const { error } = await supabase.auth.signOut({ scope: 'local' })
       if (error && !isSessionError(error)) throw error
@@ -602,10 +620,10 @@ document.addEventListener('click', async e => {
     if (action === 'print') window.print()
     if (action === 'export-voters') exportCsv()
     if (action === 'add-voter') voterModal()
-    if (action === 'add-report') { document.querySelector('.menu-drawer-backdrop')?.remove(); reportModal() }
-    if (action === 'add-tps-result') { document.querySelector('.menu-drawer-backdrop')?.remove(); tpsResultModal() }
-    if (action === 'add-assistance') { document.querySelector('.menu-drawer-backdrop')?.remove(); assistanceModal() }
-    if (action === 'emergency-report') { document.querySelector('.menu-drawer-backdrop')?.remove(); emergencyModal() }
+    if (action === 'add-report') { closeMenuDrawer(); reportModal() }
+    if (action === 'add-tps-result') { closeMenuDrawer(); tpsResultModal() }
+    if (action === 'add-assistance') { closeMenuDrawer(); assistanceModal() }
+    if (action === 'emergency-report') { closeMenuDrawer(); emergencyModal() }
     if (action === 'get-gps') {
       const status = document.querySelector('#gps-status')
       if (!navigator.geolocation) return toast('GPS tidak tersedia pada perangkat ini.', 'error')

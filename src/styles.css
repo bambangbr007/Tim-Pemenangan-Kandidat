@@ -342,22 +342,46 @@ textarea.input { min-height: 105px; resize: vertical }
 .strategy-results footer { padding-bottom: 18px }
 
 /* Hamburger drawer */
+.drawer-open { overflow: hidden; touch-action: none }
 .menu-drawer-backdrop { position: fixed; z-index: 70; inset: 0 }
 .drawer-scrim { position: absolute; inset: 0; width: 100%; border: 0; background: rgba(0,0,0,.72); backdrop-filter: blur(5px) }
-.menu-drawer { position: absolute; top: 0; bottom: 0; left: 0; width: min(86vw,340px); overflow-y: auto; padding: 20px 15px max(18px,env(safe-area-inset-bottom)); border-right: 1px solid var(--line-strong); background: linear-gradient(180deg,#0f172a,#060b14); box-shadow: 24px 0 65px rgba(0,0,0,.45); animation: drawer-in .2s ease }
+.menu-drawer { position: absolute; top: 0; bottom: 0; left: 0; display: flex; flex-direction: column; width: min(90vw,360px); height: 100dvh; max-height: 100dvh; overflow: hidden; padding: max(14px,env(safe-area-inset-top)) 12px max(10px,env(safe-area-inset-bottom)); border-right: 1px solid var(--line-strong); background: linear-gradient(180deg,#0f172a,#060b14); box-shadow: 24px 0 65px rgba(0,0,0,.45); animation: drawer-in .2s ease }
 @keyframes drawer-in { from { transform: translateX(-24px); opacity: .5 } }
-.drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 22px }
+.drawer-head { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 10px; padding: 0 2px 12px; border-bottom: 1px solid var(--line) }
 .drawer-head .side-brand { display: flex; align-items: center; gap: 10px; margin: 0 }
-.drawer-head .brand-mark { width: 42px; height: 42px; margin: 0; border-radius: 13px; font-size: 18px }
+.drawer-head .brand-mark { width: 39px; height: 39px; margin: 0; border-radius: 12px; font-size: 16px }
 .drawer-head strong, .drawer-head small { display: block }
 .drawer-head small { margin-top: 3px; color: #64748b; font-size: 9px }
-.drawer-nav { display: grid; gap: 6px }
-.drawer-nav .nav-btn { display: flex; justify-content: flex-start; gap: 12px; min-height: 47px; padding: 0 13px; border-radius: 11px; font-size: 11px }
-.drawer-nav .nav-btn.active { border: 1px solid rgba(245,158,11,.14); background: rgba(245,158,11,.09) }
-.drawer-shortcuts { display: grid; gap: 8px; padding: 16px 0; margin-top: 16px; border-top: 1px solid var(--line) }
-.drawer-logout { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 43px; border: 1px solid rgba(239,68,68,.25); border-radius: 999px; background: rgba(127,29,29,.11); color: #fca5a5; font-size: 10px; font-weight: 850 }
+.drawer-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 2px; scrollbar-width: thin; scrollbar-color: #334155 transparent }
+.drawer-section + .drawer-section { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--line) }
+.drawer-section-label { display: block; margin: 0 8px 7px; color: #64748b; font-size: 8px; font-weight: 900; letter-spacing: .14em }
+.drawer-nav { display: grid; gap: 3px }
+.drawer-nav .nav-btn { position: relative; display: grid; grid-template-columns: 27px minmax(0,1fr); align-items: center; justify-content: stretch; gap: 9px; min-height: 42px; padding: 7px 10px; border: 1px solid transparent; border-radius: 11px; font-size: 10px; text-align: left }
+.drawer-nav .nav-btn .ui-icon { width: 17px; height: 17px }
+.drawer-nav .nav-btn.active { border-color: rgba(245,158,11,.16); background: rgba(245,158,11,.09) }
+.drawer-nav .nav-btn.active::after { top: 50%; bottom: auto; left: 0; width: 3px; height: 18px; transform: translateY(-50%); border-radius: 0 4px 4px 0 }
+.drawer-shortcuts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px }
+.drawer-action { display: grid; grid-template-columns: 31px minmax(0,1fr); align-items: center; gap: 8px; min-height: 60px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: rgba(15,23,42,.82); color: #dbeafe; text-align: left; cursor: pointer }
+.drawer-action > span { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 9px; background: rgba(148,163,184,.09); color: #cbd5e1 }
+.drawer-action .ui-icon { width: 16px; height: 16px }
+.drawer-action strong, .drawer-action small { display: block }
+.drawer-action strong { font-size: 9px; line-height: 1.25 }
+.drawer-action small { margin-top: 3px; color: #64748b; font-size: 7px; line-height: 1.2 }
+.drawer-action.camera > span { background: rgba(6,182,212,.12); color: #67e8f9 }
+.drawer-action.tps > span { background: rgba(245,158,11,.12); color: #fbbf24 }
+.drawer-action.emergency > span { background: rgba(239,68,68,.11); color: #fca5a5 }
+.drawer-action.assistance > span { background: rgba(16,185,129,.11); color: #6ee7b7 }
+.drawer-action:active { transform: scale(.98) }
+.drawer-bottom { flex: none; padding: 10px 2px 0; border-top: 1px solid var(--line); background: #060b14 }
+.drawer-account { display: grid; grid-template-columns: 34px minmax(0,1fr) 7px; align-items: center; gap: 9px; padding: 0 5px 9px }
+.drawer-account .avatar { width: 34px; height: 34px; border-radius: 10px; font-size: 10px }
+.drawer-account strong, .drawer-account small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.drawer-account strong { font-size: 9px }
+.drawer-account small { margin-top: 2px; color: #64748b; font-size: 8px }
+.drawer-account i { width: 7px; height: 7px; border-radius: 50%; background: #10b981; box-shadow: 0 0 9px rgba(16,185,129,.65) }
+.drawer-logout { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 39px; border: 1px solid rgba(239,68,68,.22); border-radius: 11px; background: rgba(127,29,29,.1); color: #fca5a5; font-size: 9px; font-weight: 850 }
 .drawer-logout .ui-icon { width: 17px; height: 17px }
-.menu-drawer footer { margin-top: 15px }
+.menu-drawer footer { margin: 0; padding: 9px 4px 1px; color: #475569; font-size: 8px }
 
 /* Internal pages, forms, lists */
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin: 3px 0 18px }
