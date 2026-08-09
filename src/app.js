@@ -16,8 +16,8 @@ const TOTAL_DPT = 78500
 const TOTAL_TPS = 200
 const state = {
   session: null, profile: null, page: 'dashboard', busy: false, realtime: null,
-  voters: [], activities: [], reports: [], commands: [], opponents: [], profiles: [], teams: [], notifications: [], tpsResults: [],
-  filters: { voter: '', status: '', report: '', tpsVillage: '', tpsResult: '', tpsWitness: '' }, strategy: null
+  voters: [], activities: [], reports: [], commands: [], opponents: [], profiles: [], teams: [], notifications: [], tpsResults: [], assistance: [], electionIncidents: [],
+  filters: { voter: '', status: '', report: '', tpsVillage: '', tpsResult: '', tpsWitness: '', assistanceStatus: '', assistanceGroup: '', assistanceSearch: '' }, strategy: null
 }
 let cameraStream = null
 let cameraTarget = null
@@ -28,12 +28,12 @@ const rupiah = n => new Intl.NumberFormat('id-ID').format(Number(n || 0))
 const dateId = value => value ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(new Date(value)) : '-'
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
 const initials = name => String(name || 'U').split(/\s+/).slice(0, 2).map(x => x[0]).join('').toUpperCase()
-const title = s => ({ dashboard: 'Dasbor Komando', voters: 'Data Pemilih', field: 'Kegiatan Lapangan', commands: 'AI Strategy Advisor', realcount: 'Real Count TPS', more: 'Menu Utama' }[s] || 'Dasbor Komando')
+const title = s => ({ dashboard: 'Dasbor Komando', voters: 'Data Pemilih', field: 'Kegiatan Lapangan', commands: 'AI Strategy Advisor', realcount: 'Real Count TPS', mobilization: 'Bantuan & Keamanan TPS', more: 'Menu Utama' }[s] || 'Dasbor Komando')
 const roleName = r => ({ admin: 'Admin', owner: 'Owner', team: 'Tim Pemenangan' }[r] || r)
 const voterStatus = s => ({ support: 'Siap Bergabung', swing: 'Swing Voter', refuse: 'Belum Bersedia', unknown: 'Belum Dipetakan' }[s] || s)
 const statusChip = s => ({ support: 'ok', swing: 'warn', refuse: 'bad', unknown: 'info', active: 'ok', pending: 'warn', rejected: 'bad', done: 'ok', in_progress: 'info', planned: 'warn', urgent: 'bad' }[s] || 'info')
 const can = (...roles) => state.profile && roles.includes(state.profile.role)
-const clearCampaignData = () => { for (const key of ['voters', 'activities', 'reports', 'commands', 'opponents', 'profiles', 'teams', 'notifications', 'tpsResults']) state[key] = [] }
+const clearCampaignData = () => { for (const key of ['voters', 'activities', 'reports', 'commands', 'opponents', 'profiles', 'teams', 'notifications', 'tpsResults', 'assistance', 'electionIncidents']) state[key] = [] }
 const icon = (name, cls = '') => {
   const paths = {
     dashboard: '<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
@@ -59,6 +59,9 @@ const icon = (name, cls = '') => {
     ,vote: '<path d="M6 3h12l2 7-8 4-8-4 2-7Z"/><path d="M4 10v10h16V10M8 20v-5h8v5"/>'
     ,chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'
     ,check: '<path d="m5 12 4 4L19 6"/>'
+    ,car: '<path d="M5 17h14M7 17l-2-5 2-5h10l2 5-2 5M7 12h10"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>'
+    ,alert: '<path d="M12 3 2 21h20L12 3Z"/><path d="M12 9v5M12 18h.01"/>'
+    ,location: '<path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>'
   }
   return `<svg class="ui-icon ${cls}" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || paths.sparkle}</svg>`
 }
@@ -127,21 +130,23 @@ async function loadAll(quiet = false) {
     supabase.from('opponent_snapshots').select('*').order('snapshot_date', { ascending: false }).limit(200),
     supabase.from('teams').select('*').order('name'),
     supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(100),
-    supabase.from('tps_results').select('*, profiles!tps_results_reporter_id_fkey(full_name,phone)').order('created_at', { ascending: false }).limit(1000)
+    supabase.from('tps_results').select('*, profiles!tps_results_reporter_id_fkey(full_name,phone)').order('created_at', { ascending: false }).limit(1000),
+    supabase.from('voter_assistance').select('*').order('created_at', { ascending: false }).limit(1000),
+    supabase.from('election_day_incidents').select('*, profiles!election_day_incidents_reporter_id_fkey(full_name,phone)').order('created_at', { ascending: false }).limit(500)
   ]
   if (can('admin', 'owner')) queries.push(supabase.from('profiles').select('*').order('created_at', { ascending: false }))
   const results = await Promise.all(queries)
   const failed = results.find(x => x.error)
   if (failed) throw failed.error
-  ;[state.voters, state.activities, state.reports, state.commands, state.opponents, state.teams, state.notifications, state.tpsResults] = results.slice(0, 8).map(x => x.data || [])
-  state.profiles = results[8]?.data || []
+  ;[state.voters, state.activities, state.reports, state.commands, state.opponents, state.teams, state.notifications, state.tpsResults, state.assistance, state.electionIncidents] = results.slice(0, 10).map(x => x.data || [])
+  state.profiles = results[10]?.data || []
   if (!quiet) renderShell()
 }
 
 function subscribeRealtime() {
   if (state.realtime) supabase.removeChannel(state.realtime)
   const channel = supabase.channel(`campaign-${state.profile.id}`)
-  for (const table of ['voters', 'activities', 'field_reports', 'commands', 'opponent_snapshots', 'profiles', 'notifications', 'tps_results']) {
+  for (const table of ['voters', 'activities', 'field_reports', 'commands', 'opponent_snapshots', 'profiles', 'notifications', 'tps_results', 'voter_assistance', 'election_day_incidents']) {
     channel.on('postgres_changes', { event: '*', schema: 'public', table }, debounceReload)
   }
   state.realtime = channel.subscribe()
@@ -150,7 +155,7 @@ let reloadTimer
 function debounceReload() { clearTimeout(reloadTimer); reloadTimer = setTimeout(async () => { try { await loadAll(true); renderPage(); updateBadge() } catch { /* transient realtime refresh */ } }, 350) }
 
 function navButtons(cls = '', includeRealCount = false) {
-  const items = [['dashboard', 'dashboard', 'Dasbor'], ['voters', 'users', 'Pemilih'], ['field', 'clipboard', 'Kegiatan'], ...(includeRealCount ? [['realcount', 'vote', 'Real Count TPS']] : []), ['commands', 'sparkle', 'AI Advisor'], ['more', 'menu', 'Menu']]
+  const items = [['dashboard', 'dashboard', 'Dasbor'], ['voters', 'users', 'Pemilih'], ['field', 'clipboard', 'Kegiatan'], ...(includeRealCount ? [['realcount', 'vote', 'Real Count TPS'], ['mobilization', 'car', 'Bantuan & Keamanan TPS']] : []), ['commands', 'sparkle', 'AI Advisor'], ['more', 'menu', 'Menu']]
   return items.map(([id, iconName, label]) => `<button class="nav-btn ${cls} ${state.page === id ? 'active' : ''}" data-page="${id}">${icon(iconName)}<span>${label}</span></button>`).join('')
 }
 
@@ -166,7 +171,7 @@ function openMenuDrawer() {
   document.querySelector('.menu-drawer-backdrop')?.remove()
   const wrap = document.createElement('div')
   wrap.className = 'menu-drawer-backdrop'
-  wrap.innerHTML = `<button class="drawer-scrim" data-action="close-menu" aria-label="Tutup menu"></button><aside class="menu-drawer" role="dialog" aria-modal="true" aria-label="Menu utama"><div class="drawer-head"><div class="side-brand"><span class="brand-mark">C</span><div><strong>Command Center</strong><small>${esc(roleName(state.profile.role))}</small></div></div><button class="close" data-action="close-menu" aria-label="Tutup">×</button></div><nav class="drawer-nav">${navButtons('drawer-item', true)}</nav><div class="drawer-shortcuts"><button class="btn action-cyan" data-action="add-report">${icon('camera')} Laporan Kamera</button><button class="btn action-amber" data-action="add-tps-result">${icon('vote')} Input Hasil TPS</button>${can('admin', 'owner') ? `<button class="btn btn-ghost" data-page="commands">${icon('sparkle')} Strategy Engine</button>` : ''}</div><button class="drawer-logout" data-action="logout">${icon('logout')} Keluar ke Login</button><footer>BBR @ SYNERGY smart system</footer></aside>`
+  wrap.innerHTML = `<button class="drawer-scrim" data-action="close-menu" aria-label="Tutup menu"></button><aside class="menu-drawer" role="dialog" aria-modal="true" aria-label="Menu utama"><div class="drawer-head"><div class="side-brand"><span class="brand-mark">C</span><div><strong>Command Center</strong><small>${esc(roleName(state.profile.role))}</small></div></div><button class="close" data-action="close-menu" aria-label="Tutup">×</button></div><nav class="drawer-nav">${navButtons('drawer-item', true)}</nav><div class="drawer-shortcuts"><button class="btn action-cyan" data-action="add-report">${icon('camera')} Laporan Kamera</button><button class="btn action-amber" data-action="add-tps-result">${icon('vote')} Input Hasil TPS</button><button class="btn btn-ghost" data-action="emergency-report">${icon('alert')} Laporan Keselamatan</button>${can('admin', 'owner') ? `<button class="btn btn-ghost" data-page="commands">${icon('sparkle')} Strategy Engine</button>` : ''}</div><button class="drawer-logout" data-action="logout">${icon('logout')} Keluar ke Login</button><footer>BBR @ SYNERGY smart system</footer></aside>`
   document.body.append(wrap)
 }
 
@@ -175,9 +180,9 @@ function updateBadge() { const b = document.querySelector('#notif-badge'); if (b
 
 function renderPage() {
   const page = document.querySelector('#page'); if (!page) return
-  page.innerHTML = ({ dashboard: dashboardPage, voters: votersPage, field: fieldPage, commands: commandsPage, realcount: realCountPage, more: morePage }[state.page] || dashboardPage)()
+  page.innerHTML = ({ dashboard: dashboardPage, voters: votersPage, field: fieldPage, commands: commandsPage, realcount: realCountPage, mobilization: mobilizationPage, more: morePage }[state.page] || dashboardPage)()
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.page === state.page))
-  const fab = document.querySelector('#fab'); if (fab) fab.classList.toggle('hidden', !['voters', 'field', 'commands', 'realcount'].includes(state.page) || (state.page === 'commands' && !can('admin', 'owner')))
+  const fab = document.querySelector('#fab'); if (fab) fab.classList.toggle('hidden', !['voters', 'field', 'commands', 'realcount', 'mobilization'].includes(state.page) || (state.page === 'commands' && !can('admin', 'owner')))
 }
 
 function dashboardPage() {
@@ -458,10 +463,68 @@ function updateImagePreview(input, capturedFile = null) {
   preview.classList.remove('hidden')
 }
 
+const assistanceStatusLabel = status => ({ waiting: 'Menunggu', pickup_requested: 'Minta Penjemputan', en_route: 'Dalam Perjalanan', arrived: 'Tiba di TPS', cancelled: 'Dibatalkan' }[status] || status)
+const assistanceStatusClass = status => ({ waiting: 'warn', pickup_requested: 'warn', en_route: 'info', arrived: 'ok', cancelled: 'bad' }[status] || 'info')
+const assistanceCategoryLabel = category => ({ general: 'Umum', elderly: 'Lansia', disability: 'Disabilitas', medical: 'Kebutuhan Medis' }[category] || category)
+
+function mobilizationPage() {
+  const rows = state.assistance
+  const arrived = rows.filter(r => r.attendance_status === 'arrived').length
+  const moving = rows.filter(r => ['pickup_requested', 'en_route'].includes(r.attendance_status)).length
+  const waiting = rows.filter(r => r.attendance_status === 'waiting' || r.safety_concern).length
+  const pct = percentage(arrived, rows.length)
+  const q = state.filters.assistanceSearch.toLowerCase()
+  const filtered = rows.filter(r => {
+    const groupMatch = !state.filters.assistanceGroup
+      || (state.filters.assistanceGroup === 'unarrived' && r.attendance_status !== 'arrived')
+      || (state.filters.assistanceGroup === 'transport' && r.transport_needed)
+      || (state.filters.assistanceGroup === 'accessibility' && ['elderly', 'disability', 'medical'].includes(r.assistance_category))
+      || (state.filters.assistanceGroup === 'safety' && r.safety_concern)
+    return groupMatch && (!state.filters.assistanceStatus || r.attendance_status === state.filters.assistanceStatus)
+      && (!q || `${r.display_name} ${r.village} ${r.polling_station} ${r.address_hint || ''}`.toLowerCase().includes(q))
+  })
+  return `<section class="mobilization-hero"><div><span class="day-badge">${icon('car')} D-DAY ASSISTANCE CONTROL</span><h1>Pusat Bantuan Kehadiran & Keamanan TPS</h1><p>Koordinasi transportasi sukarela, aksesibilitas, kedatangan di TPS, dan laporan keselamatan tanpa menyimpan NIK atau bukti pilihan pemilih.</p></div><div class="hero-actions"><button class="btn action-amber" data-action="add-assistance">${icon('plus')} Tambah Peserta Bantuan</button><button class="btn emergency-button" data-action="emergency-report">${icon('alert')} Laporan Darurat</button></div></section>
+    <section class="bento-grid mobilization-kpis">
+      ${mobilizationMetric('target', 'TOTAL PESERTA BANTUAN', rows.length, 'Terdaftar secara sukarela', 'users')}
+      ${mobilizationMetric('arrived', 'SUDAH TIBA DI TPS', arrived, `${pct}% terkonfirmasi tiba`, 'check')}
+      ${mobilizationMetric('moving', 'PENJEMPUTAN / PERJALANAN', moving, 'Armada dan pendamping aktif', 'car')}
+      ${mobilizationMetric('risk', 'MENUNGGU / PERLU PERHATIAN', waiting, 'Belum tiba atau ada risiko keselamatan', 'alert')}
+    </section>
+    <section class="card assistance-panel"><div class="card-heading"><div><span>DAFTAR PERIKSA BANTUAN PER TPS</span><small>${filtered.length} dari ${rows.length} peserta terlihat</small></div><span class="chip info">REAL-TIME</span></div><div class="assistance-toolbar"><select class="input" id="assistance-status-filter"><option value="">Semua status</option>${['waiting','pickup_requested','en_route','arrived'].map(x => `<option value="${x}" ${state.filters.assistanceStatus === x ? 'selected' : ''}>${assistanceStatusLabel(x)}</option>`).join('')}</select><select class="input" id="assistance-group-filter"><option value="">Semua kebutuhan</option><option value="unarrived" ${state.filters.assistanceGroup === 'unarrived' ? 'selected' : ''}>Belum tiba</option><option value="transport" ${state.filters.assistanceGroup === 'transport' ? 'selected' : ''}>Butuh armada</option><option value="accessibility" ${state.filters.assistanceGroup === 'accessibility' ? 'selected' : ''}>Lansia / disabilitas / medis</option><option value="safety" ${state.filters.assistanceGroup === 'safety' ? 'selected' : ''}>Perhatian keselamatan</option></select><input class="input" id="assistance-search" value="${esc(state.filters.assistanceSearch)}" placeholder="Cari nama, desa, atau TPS…"></div><div class="assistance-list">${filtered.map(assistanceItem).join('') || empty('Belum ada peserta bantuan yang sesuai filter.')}</div></section>
+    <section class="mobilization-actions"><button class="card mobilization-action transport" data-action="add-assistance"><span>${icon('car')}</span><div><strong>Request Armada Penjemputan</strong><p>Catat permintaan transportasi sukarela dan kirim notifikasi ke pusat.</p></div></button><button class="card mobilization-action emergency" data-action="emergency-report"><span>${icon('alert')}</span><div><strong>Laporan Darurat / Intimidasi</strong><p>Ambil GPS, simpan laporan, lalu tinjau draf WhatsApp Tim Hukum/Satgas.</p></div></button></section>
+    <section class="card safety-sop"><div class="card-heading"><div><span>SOP BANTUAN & KESELAMATAN DI JALAN</span><small>Panduan singkat relawan Hari-H</small></div>${icon('shield')}</div><div class="sop-accordion"><details open><summary><b>1</b><span><strong>Dampingi Secara Sukarela</strong><small>Tawarkan bantuan tanpa tekanan dan hormati keputusan pribadi.</small></span></summary><p>Pastikan peserta memahami bantuan bersifat sukarela. Dampingi rombongan dengan tertib, prioritaskan lansia, penyandang disabilitas, dan kebutuhan medis.</p></details><details><summary><b>2</b><span><strong>Amati, Jangan Berkonfrontasi</strong><small>Patuhi batas area TPS dan dokumentasikan dugaan pelanggaran.</small></span></summary><p>Jangan menghadang atau berdebat dengan pihak lain. Catat waktu, lokasi, saksi, dan laporkan dugaan intimidasi atau pelanggaran kepada petugas berwenang.</p></details><details><summary><b>3</b><span><strong>Lindungi Privasi Pemilih</strong><small>Jangan meminta bukti pilihan atau foto jari bertinta.</small></span></summary><p>Konfirmasi hanya bahwa peserta telah tiba dengan selamat. Pilihan di bilik suara bersifat rahasia dan tidak boleh diminta, direkam, atau diverifikasi oleh relawan.</p></details></div></section>
+    <section class="card incident-monitor"><div class="card-heading"><div><span>LAPORAN KESELAMATAN TERBARU</span><small>${state.electionIncidents.length} laporan dapat diakses akun ini</small></div><button class="mini-action" data-action="emergency-report">＋ Lapor</button></div><div class="incident-day-list">${state.electionIncidents.slice(0, 8).map(electionIncidentItem).join('') || empty('Belum ada laporan keselamatan Hari-H.')}</div></section><footer>BBR @ SYNERGY smart system</footer>`
+}
+
+function mobilizationMetric(kind, label, value, note, iconName) {
+  return `<article class="card mobilization-metric ${kind}"><div class="metric-icon">${icon(iconName)}</div><span>${esc(label)}</span><strong>${rupiah(value)}</strong><small>${esc(note)}</small></article>`
+}
+
+function assistanceItem(row) {
+  const next = ({ waiting: 'pickup_requested', pickup_requested: 'en_route', en_route: 'arrived' }[row.attendance_status])
+  const nextLabel = ({ waiting: 'Minta Jemput', pickup_requested: 'Mulai Perjalanan', en_route: 'Tandai Tiba' }[row.attendance_status])
+  return `<article class="assistance-item"><div class="avatar">${initials(row.display_name)}</div><div class="assistance-main"><div><strong>${esc(row.display_name)}</strong><span class="chip ${assistanceStatusClass(row.attendance_status)}">${assistanceStatusLabel(row.attendance_status)}</span></div><p>${esc(row.village)} · TPS ${esc(row.polling_station)}${row.address_hint ? ` · ${esc(row.address_hint)}` : ''}</p><div class="meta"><span class="chip">${assistanceCategoryLabel(row.assistance_category)}</span>${row.transport_needed ? `<span class="chip warn">Butuh Armada</span>` : ''}${row.safety_concern ? `<span class="chip bad">Perhatian Keselamatan</span>` : ''}</div><div class="assistance-actions">${next ? `<button class="mini-action assistance-next" data-action="advance-assistance" data-id="${row.id}" data-status="${next}">${icon(next === 'arrived' ? 'check' : 'car')} ${nextLabel}</button>` : ''}${row.attendance_status !== 'arrived' && !row.transport_needed ? `<button class="mini-action" data-action="request-transport" data-id="${row.id}">${icon('car')} Armada</button>` : ''}<button class="mini-action whatsapp" data-action="wa-assistance" data-id="${row.id}">${icon('whatsapp')} Pengingat Netral</button></div></div></article>`
+}
+
+function electionIncidentItem(row) {
+  const type = ({ obstruction: 'Hambatan Akses', intimidation: 'Intimidasi', suspected_violation: 'Dugaan Pelanggaran', medical: 'Darurat Medis', other: 'Lainnya' }[row.incident_type] || row.incident_type)
+  const hasGps = row.latitude != null && row.longitude != null
+  return `<article class="incident-day-item"><span class="severity ${row.incident_type === 'medical' ? 'medium' : 'high'}">${esc(type)}</span><div><strong>${esc(row.profiles?.full_name || 'Relawan')}</strong><p>${esc(row.description)}</p><small>${dateId(row.created_at)}${hasGps ? ` · GPS ${esc(row.latitude)}, ${esc(row.longitude)}` : ''}</small></div>${hasGps ? `<a class="mini-action" href="https://www.google.com/maps?q=${encodeURIComponent(`${row.latitude},${row.longitude}`)}" target="_blank" rel="noopener">${icon('location')} Peta</a>` : ''}</article>`
+}
+
+function assistanceModal() {
+  const villages = [...new Set([...state.voters.map(v => v.village).filter(Boolean), 'Desa Sukamaju', 'Desa Kencana', 'Desa Murni'])]
+  openModal('Tambah Peserta Bantuan TPS', `<div class="privacy-notice">${icon('shield')} Data hanya untuk layanan transportasi/aksesibilitas yang disetujui peserta. Jangan masukkan NIK atau preferensi politik.</div><div class="form-grid two">${field('display_name', 'Nama panggilan / nama tampilan', '', 'required maxlength="100" autocomplete="name"')}${field('phone', 'Nomor WhatsApp (opsional)', '', 'inputmode="tel" maxlength="18"')}${selectField('village', 'Desa / Kelurahan', villages.map(x => [x, x]), villages[0])}${field('polling_station', 'Nomor TPS', '', 'required maxlength="20" placeholder="01"')}${selectField('assistance_category', 'Kategori Bantuan', [['general','Umum'],['elderly','Lansia'],['disability','Disabilitas'],['medical','Kebutuhan Medis']], 'general')}${field('address_hint', 'Petunjuk alamat / RT-RW', '', 'maxlength="220"')}</div><div class="check-grid"><label><input type="checkbox" name="transport_needed"> Memerlukan transportasi</label><label><input type="checkbox" name="safety_concern"> Ada perhatian keselamatan</label></div><div class="field"><label for="notes">Catatan kebutuhan</label><textarea class="input" id="notes" name="notes" maxlength="500" placeholder="Contoh: menggunakan kursi roda, perlu pendamping keluarga…"></textarea></div><label class="consent-check"><input type="checkbox" name="consent_confirmed" required><span><strong>Persetujuan peserta telah dikonfirmasi</strong><small>Peserta bersedia datanya digunakan hanya untuk koordinasi bantuan TPS.</small></span></label><div class="actions"><button class="btn action-amber" type="submit">${icon('save')} Simpan Permintaan Bantuan</button></div>`, 'assistance-form')
+}
+
+function emergencyModal() {
+  openModal('Laporan Keselamatan Hari-H', `<div class="emergency-notice">${icon('alert')} Jika ada bahaya langsung, utamakan keselamatan dan hubungi petugas berwenang. Jangan melakukan konfrontasi.</div>${selectField('incident_type', 'Jenis kejadian', [['obstruction','Hambatan akses menuju TPS'],['intimidation','Intimidasi / ancaman'],['suspected_violation','Dugaan pelanggaran pemilu'],['medical','Darurat medis'],['other','Lainnya']], 'obstruction')}<div class="field"><label for="incident_description">Kronologi singkat</label><textarea class="input" id="incident_description" name="description" required maxlength="1500" placeholder="Jelaskan waktu, lokasi, kejadian, dan pihak yang perlu dihubungi…"></textarea></div><input type="hidden" id="incident_latitude" name="latitude"><input type="hidden" id="incident_longitude" name="longitude"><input type="hidden" id="incident_accuracy" name="accuracy_m"><div class="gps-panel"><div>${icon('location')}<span><strong>Lokasi GPS</strong><small id="gps-status">Belum diambil</small></span></div><button class="btn action-cyan" type="button" data-action="get-gps">Ambil Lokasi</button></div><div class="actions"><button class="btn emergency-button" type="submit">${icon('send')} Simpan & Buka Draf WhatsApp</button></div><small class="engine-note">WhatsApp tidak dikirim otomatis. Relawan dapat meninjau dan memilih penerima sebelum mengirim.</small>`, 'incident-form')
+}
+
 function morePage() {
   const pending = state.profiles.filter(p => p.approval_status === 'pending')
   return `<section class="card profile-card"><div class="avatar">${initials(state.profile.full_name)}</div><h2>${esc(state.profile.full_name)}</h2><p class="muted">${esc(roleName(state.profile.role))} • ${esc(state.session.user.email)}</p>${state.profile.phone ? `<a class="chip" href="https://wa.me/${phoneIntl(state.profile.phone)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}</section>
-    <div class="section-title"><h2>Menu</h2></div><section class="list"><button class="list-item btn" data-page="realcount"><span>▥</span><div class="list-main"><strong>Real Count & Quick Count TPS</strong><p>Input C1, rekap suara, dan pemantauan anomali</p></div></button><button class="list-item btn" data-action="notifications"><span>♢</span><div class="list-main"><strong>Notifikasi</strong><p>${unreadCount()} belum dibaca</p></div></button>${can('admin', 'owner') ? `<button class="list-item btn" data-action="add-opponent"><span>◫</span><div class="list-main"><strong>Data Tim Lawan</strong><p>Input estimasi kondisi lapangan</p></div></button>` : ''}<button class="list-item btn" data-action="change-password"><span>⌘</span><div class="list-main"><strong>Ganti Password</strong><p>Perbarui keamanan akun</p></div></button><button class="list-item btn" data-action="logout"><span>↪</span><div class="list-main"><strong>Keluar</strong><p>Akhiri sesi aplikasi</p></div></button></section>
+    <div class="section-title"><h2>Menu</h2></div><section class="list"><button class="list-item btn" data-page="realcount"><span>▥</span><div class="list-main"><strong>Real Count & Quick Count TPS</strong><p>Input C1, rekap suara, dan pemantauan anomali</p></div></button><button class="list-item btn" data-page="mobilization"><span>♧</span><div class="list-main"><strong>Bantuan & Keamanan TPS</strong><p>Transportasi sukarela, aksesibilitas, dan laporan keselamatan</p></div></button><button class="list-item btn" data-action="notifications"><span>♢</span><div class="list-main"><strong>Notifikasi</strong><p>${unreadCount()} belum dibaca</p></div></button>${can('admin', 'owner') ? `<button class="list-item btn" data-action="add-opponent"><span>◫</span><div class="list-main"><strong>Data Tim Lawan</strong><p>Input estimasi kondisi lapangan</p></div></button>` : ''}<button class="list-item btn" data-action="change-password"><span>⌘</span><div class="list-main"><strong>Ganti Password</strong><p>Perbarui keamanan akun</p></div></button><button class="list-item btn" data-action="logout"><span>↪</span><div class="list-main"><strong>Keluar</strong><p>Akhiri sesi aplikasi</p></div></button></section>
     ${can('admin') ? `<div class="section-title"><h2>Persetujuan Akun (${pending.length})</h2></div><section class="list">${pending.map(p => `<article class="list-item"><div class="avatar">${initials(p.full_name)}</div><div class="list-main"><strong>${esc(p.full_name)}</strong><p>${esc(p.phone || '')}</p><div class="meta"><select class="input" id="role-${p.id}" style="min-height:36px"><option value="team">Tim Pemenangan</option><option value="owner">Owner</option><option value="admin">Admin</option></select><select class="input" id="team-${p.id}" style="min-height:36px"><option value="">Tanpa tim</option>${state.teams.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select><button class="btn btn-primary" data-action="approve-user" data-id="${p.id}">Setujui</button><button class="btn btn-danger" data-action="reject-user" data-id="${p.id}">Tolak</button></div></div></article>`).join('') || empty('Tidak ada akun menunggu.')}</section><div class="section-title"><h2>Tim Pemenangan</h2><button class="btn btn-ghost" data-action="add-team">＋ Tim</button></div><section class="list">${state.teams.map(t => `<article class="list-item"><div class="list-main"><strong>${esc(t.name)}</strong><p>${esc(t.area || 'Wilayah belum ditetapkan')}</p></div></article>`).join('') || empty('Belum ada tim.')}</section>` : ''}`
 }
 
@@ -541,6 +604,23 @@ document.addEventListener('click', async e => {
     if (action === 'add-voter') voterModal()
     if (action === 'add-report') { document.querySelector('.menu-drawer-backdrop')?.remove(); reportModal() }
     if (action === 'add-tps-result') { document.querySelector('.menu-drawer-backdrop')?.remove(); tpsResultModal() }
+    if (action === 'add-assistance') { document.querySelector('.menu-drawer-backdrop')?.remove(); assistanceModal() }
+    if (action === 'emergency-report') { document.querySelector('.menu-drawer-backdrop')?.remove(); emergencyModal() }
+    if (action === 'get-gps') {
+      const status = document.querySelector('#gps-status')
+      if (!navigator.geolocation) return toast('GPS tidak tersedia pada perangkat ini.', 'error')
+      el.disabled = true; if (status) status.textContent = 'Mengambil lokasi…'
+      navigator.geolocation.getCurrentPosition(position => {
+        document.querySelector('#incident_latitude').value = position.coords.latitude.toFixed(6)
+        document.querySelector('#incident_longitude').value = position.coords.longitude.toFixed(6)
+        document.querySelector('#incident_accuracy').value = position.coords.accuracy.toFixed(2)
+        if (status) status.textContent = `${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)} · akurasi ±${Math.round(position.coords.accuracy)} m`
+        el.disabled = false; toast('Lokasi GPS berhasil ditambahkan.')
+      }, error => {
+        if (status) status.textContent = 'Lokasi belum diizinkan'
+        el.disabled = false; toast(error.code === 1 ? 'Izinkan akses lokasi pada browser untuk menyertakan GPS.' : 'Lokasi belum berhasil diperoleh. Coba di area terbuka.', 'error')
+      }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 15000 })
+    }
     if (action === 'start-camera') await startCamera(el.dataset.target)
     if (action === 'capture-camera') await captureCamera(el.dataset.target)
     if (action === 'stop-camera') stopCamera()
@@ -552,7 +632,7 @@ document.addEventListener('click', async e => {
     if (action === 'copy-strategy' && state.strategy) { await navigator.clipboard.writeText(state.strategy.draft); toast('Draf komando berhasil disalin.') }
     if (action === 'save-strategy' && state.strategy) await save('commands', { title: `Strategi: ${state.strategy.category}`, message: state.strategy.situation, priority: state.strategy.riskLevel === 'TINGGI' ? 'urgent' : 'normal', whatsapp_message: state.strategy.draft, created_by: state.profile.id }, null, el)
     if (action === 'whatsapp-strategy' && state.strategy) window.open(`https://wa.me/?text=${encodeURIComponent(state.strategy.draft)}`, '_blank', 'noopener')
-    if (action === 'add') ({ voters: () => voterModal(), field: () => reportModal(), commands: commandModal, realcount: () => tpsResultModal() }[state.page]?.())
+    if (action === 'add') ({ voters: () => voterModal(), field: () => reportModal(), commands: commandModal, realcount: () => tpsResultModal(), mobilization: () => assistanceModal() }[state.page]?.())
     if (action === 'edit-voter') voterModal(state.voters.find(v => v.id === el.dataset.id))
     if (action === 'delete-voter' && confirm('Hapus data pemilih ini? Tindakan tercatat dalam audit.')) { const { error } = await supabase.from('voters').delete().eq('id', el.dataset.id); if (error) throw error; el.closest('.modal-backdrop')?.remove(); await loadAll(true); renderPage(); toast('Data dihapus.') }
     if (action === 'add-activity') activityModal()
@@ -575,6 +655,20 @@ document.addEventListener('click', async e => {
       if (error) throw error
       await loadAll(true); renderPage(); toast(verification_status === 'verified' ? 'Data TPS telah diverifikasi.' : 'Data TPS ditandai untuk pemeriksaan sengketa.')
     }
+    if (action === 'request-transport' || action === 'advance-assistance') {
+      const payload = action === 'request-transport'
+        ? { transport_needed: true, attendance_status: 'pickup_requested', updated_by: state.profile.id }
+        : { attendance_status: el.dataset.status, updated_by: state.profile.id }
+      const { error } = await supabase.from('voter_assistance').update(payload).eq('id', el.dataset.id)
+      if (error) throw error
+      await loadAll(true); renderPage(); toast(action === 'request-transport' ? 'Permintaan armada dikirim ke pusat.' : 'Status bantuan berhasil diperbarui.')
+    }
+    if (action === 'wa-assistance') {
+      const row = state.assistance.find(x => x.id === el.dataset.id), phone = phoneIntl(row?.phone)
+      if (!phone) return toast('Nomor WhatsApp peserta belum tersedia.', 'error')
+      const message = `Halo ${row.display_name}, layanan bantuan transportasi menuju TPS ${row.polling_station} tersedia. Jika Anda memerlukannya, silakan balas pesan ini. Penggunaan layanan dan keputusan Anda di TPS sepenuhnya bersifat sukarela dan pribadi. Terima kasih.`
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener')
+    }
     if (action === 'notifications') { openModal('Notifikasi', `<section class="list">${state.notifications.map(n => `<article class="list-item"><div class="list-main"><strong>${esc(n.title)}</strong><p>${esc(n.message)}</p><div class="meta"><span class="chip">${dateId(n.created_at)}</span></div></div></article>`).join('') || empty('Belum ada notifikasi.')}</section><button class="btn btn-ghost btn-block" data-action="read-notifications">Tandai semua dibaca</button>`); }
     if (action === 'read-notifications') { await supabase.from('notifications').update({ read_at: new Date().toISOString() }).is('read_at', null); await loadAll(true); document.querySelector('.modal-backdrop')?.remove(); renderPage() }
     if (action === 'change-password') openModal('Ganti Password', `${field('new_password', 'Password baru', '', 'type="password" minlength="8" required autocomplete="new-password"')}<div class="actions"><button class="btn btn-primary">Perbarui Password</button></div>`, 'password-form')
@@ -585,6 +679,7 @@ document.addEventListener('click', async e => {
 document.addEventListener('input', e => {
   if (e.target.id === 'voter-search') { state.filters.voter = e.target.value; clearTimeout(reloadTimer); reloadTimer = setTimeout(renderPage, 180) }
   if (e.target.id === 'tps-witness-search') { state.filters.tpsWitness = e.target.value; clearTimeout(reloadTimer); reloadTimer = setTimeout(renderPage, 180) }
+  if (e.target.id === 'assistance-search') { state.filters.assistanceSearch = e.target.value; clearTimeout(reloadTimer); reloadTimer = setTimeout(renderPage, 180) }
   if (e.target.id === 'dpt_total' || e.target.id === 'voters_present') {
     const dpt = Number(document.querySelector('#dpt_total')?.value || 0), present = Number(document.querySelector('#voters_present')?.value || 0)
     const output = document.querySelector('#participation-value'); if (output) output.textContent = `${Math.min(100, Number(percentage(present, dpt))).toFixed(1)}%`
@@ -594,6 +689,8 @@ document.addEventListener('change', e => {
   if (e.target.id === 'voter-status') { state.filters.status = e.target.value; renderPage() }
   if (e.target.id === 'tps-village-filter') { state.filters.tpsVillage = e.target.value; renderPage() }
   if (e.target.id === 'tps-result-filter') { state.filters.tpsResult = e.target.value; renderPage() }
+  if (e.target.id === 'assistance-status-filter') { state.filters.assistanceStatus = e.target.value; renderPage() }
+  if (e.target.id === 'assistance-group-filter') { state.filters.assistanceGroup = e.target.value; renderPage() }
   if (e.target.id === 'media' || e.target.id === 'c1_media') { capturedFiles.delete(e.target.id); updateImagePreview(e.target) }
 })
 
@@ -647,6 +744,32 @@ document.addEventListener('submit', async e => {
         throw error
       }
       setBusy(button, false); stopCamera(); capturedFiles.delete('c1_media'); form.closest('.modal-backdrop').remove(); await loadAll(true); state.page = 'realcount'; renderPage(); toast('Data TPS dan foto C1 berhasil dikirim ke pusat secara real-time.'); return
+    }
+    if (form.id === 'assistance-form') {
+      const consent = fd.get('consent_confirmed') === 'on'
+      if (!consent) throw new Error('Persetujuan peserta wajib dikonfirmasi sebelum menyimpan data.')
+      const transport = fd.get('transport_needed') === 'on'
+      return save('voter_assistance', {
+        display_name: String(fd.get('display_name')).trim(), phone: String(fd.get('phone')).trim() || null,
+        village: String(fd.get('village')).trim(), address_hint: String(fd.get('address_hint')).trim() || null,
+        polling_station: String(fd.get('polling_station')).trim(), assistance_category: fd.get('assistance_category'),
+        transport_needed: transport, safety_concern: fd.get('safety_concern') === 'on', attendance_status: transport ? 'pickup_requested' : 'waiting',
+        consent_confirmed: consent, notes: String(fd.get('notes')).trim() || null, team_id: state.profile.team_id || null,
+        created_by: state.profile.id, updated_by: state.profile.id
+      }, null, button)
+    }
+    if (form.id === 'incident-form') {
+      setBusy(button, true, 'Menyimpan laporan…')
+      const latitude = String(fd.get('latitude') || ''), longitude = String(fd.get('longitude') || ''), accuracy = String(fd.get('accuracy_m') || '')
+      const payload = { incident_type: fd.get('incident_type'), description: String(fd.get('description')).trim(), latitude: latitude ? Number(latitude) : null, longitude: longitude ? Number(longitude) : null, accuracy_m: accuracy ? Number(accuracy) : null, reporter_id: state.profile.id, team_id: state.profile.team_id || null }
+      const { error } = await supabase.from('election_day_incidents').insert(payload)
+      setBusy(button, false); if (error) throw error
+      const locationText = latitude && longitude ? `\nLokasi GPS: https://www.google.com/maps?q=${latitude},${longitude}\nAkurasi: ±${Math.round(Number(accuracy || 0))} meter` : '\nLokasi GPS belum disertakan.'
+      const typeLabel = ({ obstruction: 'Hambatan akses', intimidation: 'Intimidasi', suspected_violation: 'Dugaan pelanggaran', medical: 'Darurat medis', other: 'Lainnya' }[payload.incident_type] || payload.incident_type)
+      const message = `LAPORAN KESELAMATAN HARI-H\n\nJenis: ${typeLabel}\nPelapor: ${state.profile.full_name}\nKronologi: ${payload.description}${locationText}\n\nMohon ditinjau oleh Tim Hukum/Satgas. Jangan melakukan konfrontasi dan utamakan keselamatan.`
+      form.closest('.modal-backdrop').remove(); await loadAll(true); state.page = 'mobilization'; renderPage()
+      openModal('Laporan Tersimpan · Tinjau WhatsApp', `<div class="info-box">Laporan sudah tersimpan dan pusat menerima notifikasi. Periksa kembali draf sebelum memilih penerima WhatsApp.</div><pre class="wa-review">${esc(message)}</pre><a class="btn whatsapp-button btn-block" href="https://wa.me/?text=${encodeURIComponent(message)}" target="_blank" rel="noopener">${icon('whatsapp')} Buka WhatsApp & Pilih Penerima</a>`)
+      toast('Laporan keselamatan berhasil dikirim ke pusat.'); return
     }
     if (form.id === 'command-form') return save('commands', { title: fd.get('title').trim(), message: fd.get('message').trim(), priority: fd.get('priority'), whatsapp_message: fd.get('whatsapp_message').trim() || null, created_by: state.profile.id }, null, button)
     if (form.id === 'opponent-form') return save('opponent_snapshots', { opponent_name: fd.get('opponent_name').trim(), estimated_support: Number(fd.get('estimated_support')), notes: fd.get('notes').trim() || null, snapshot_date: today(), created_by: state.profile.id }, null, button)
