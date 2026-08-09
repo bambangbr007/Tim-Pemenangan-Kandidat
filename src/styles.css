@@ -416,6 +416,80 @@ footer { padding: 28px 12px 8px; color: #94a3b8; font-size: 11px; text-align: ce
 .media-preview { width: 86px; height: 72px; border-radius: 10px; object-fit: cover; background: #060b14 }
 .danger-zone { border-color: rgba(239,68,68,.32) }
 
+/* Voter assistance & election-day safety */
+.mobilization-hero { position: relative; overflow: hidden; display: grid; gap: 19px; padding: 24px 20px; margin-bottom: 12px; border: 1px solid rgba(245,158,11,.2); border-radius: 20px; background: radial-gradient(circle at 90% 10%,rgba(16,185,129,.12),transparent 30%),linear-gradient(135deg,#17150e,#0f172a 52%,#07131e); box-shadow: 0 20px 56px rgba(0,0,0,.2) }
+.mobilization-hero h1 { max-width: 820px; margin: 11px 0 7px; font-size: clamp(24px,6vw,38px); line-height: 1.08; letter-spacing: -.05em }
+.mobilization-hero p { max-width: 760px; margin: 0; color: #9aa8ba; font-size: 10px; line-height: 1.65 }
+.day-badge { display: inline-flex; align-items: center; gap: 7px; width: fit-content; padding: 6px 9px; border: 1px solid rgba(245,158,11,.24); border-radius: 999px; background: rgba(245,158,11,.08); color: #fcd34d; font-size: 8px; font-weight: 950; letter-spacing: .09em }
+.day-badge .ui-icon { width: 13px; height: 13px }
+.emergency-button { background: linear-gradient(135deg,#991b1b,#ef4444); color: #fff; box-shadow: 0 10px 26px rgba(239,68,68,.2) }
+.mobilization-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); margin-bottom: 12px }
+.mobilization-metric { position: relative; min-height: 146px; padding: 16px }
+.mobilization-metric > span { display: block; max-width: 77%; color: #8492a7; font-size: 8px; font-weight: 950; letter-spacing: .08em; line-height: 1.4 }
+.mobilization-metric > strong { display: block; margin: 16px 0 7px; color: #f8fafc; font-size: 30px; letter-spacing: -.055em }
+.mobilization-metric > small { display: block; color: #64748b; font-size: 8px; line-height: 1.45 }
+.mobilization-metric.target .metric-icon { background: rgba(245,158,11,.11); color: #fbbf24 }
+.mobilization-metric.arrived .metric-icon { background: rgba(16,185,129,.11); color: #6ee7b7 }
+.mobilization-metric.moving .metric-icon { background: rgba(6,182,212,.11); color: #67e8f9 }
+.mobilization-metric.risk .metric-icon { background: rgba(239,68,68,.11); color: #fca5a5 }
+.assistance-panel, .safety-sop, .incident-monitor { padding: 17px; margin-bottom: 12px }
+.assistance-toolbar { display: grid; gap: 8px; margin-bottom: 13px }
+.assistance-list { display: grid; gap: 9px }
+.assistance-item { display: grid; grid-template-columns: auto 1fr; gap: 11px; padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: rgba(8,15,27,.72) }
+.assistance-main { min-width: 0 }
+.assistance-main > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 8px }
+.assistance-main > div:first-child > strong { overflow: hidden; font-size: 11px; white-space: nowrap; text-overflow: ellipsis }
+.assistance-main > p { margin: 6px 0 0; color: #94a3b8; font-size: 9px; line-height: 1.5 }
+.assistance-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px }
+.assistance-actions .mini-action { display: inline-flex; align-items: center; gap: 5px }
+.assistance-actions .ui-icon { width: 13px; height: 13px }
+.assistance-next { color: #67e8f9 }
+.mobilization-actions { display: grid; gap: 10px; margin-bottom: 12px }
+.mobilization-action { display: grid; grid-template-columns: auto 1fr; gap: 13px; align-items: center; width: 100%; padding: 17px; color: #e2e8f0; text-align: left; cursor: pointer }
+.mobilization-action > span { display: grid; place-items: center; width: 45px; height: 45px; border-radius: 13px }
+.mobilization-action.transport > span { background: rgba(6,182,212,.11); color: #67e8f9 }
+.mobilization-action.emergency { border-color: rgba(239,68,68,.2) }
+.mobilization-action.emergency > span { background: rgba(239,68,68,.12); color: #fca5a5 }
+.mobilization-action strong { display: block; font-size: 11px }
+.mobilization-action p { margin: 5px 0 0; color: #7f8da2; font-size: 9px; line-height: 1.5 }
+.sop-accordion { display: grid; gap: 8px }
+.sop-accordion details { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: rgba(8,15,27,.65) }
+.sop-accordion summary { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; padding: 12px; list-style: none; cursor: pointer }
+.sop-accordion summary::-webkit-details-marker { display: none }
+.sop-accordion summary > b { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 9px; background: rgba(245,158,11,.1); color: #fbbf24; font-size: 10px }
+.sop-accordion summary strong, .sop-accordion summary small { display: block }
+.sop-accordion summary strong { font-size: 10px }
+.sop-accordion summary small { margin-top: 3px; color: #64748b; font-size: 8px }
+.sop-accordion details > p { padding: 0 13px 13px 52px; margin: 0; color: #94a3b8; font-size: 9px; line-height: 1.6 }
+.incident-day-list { display: grid; gap: 8px }
+.incident-day-item { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; padding: 11px; border: 1px solid var(--line); border-radius: 12px; background: rgba(8,15,27,.65) }
+.incident-day-item > div { min-width: 0 }
+.incident-day-item strong { display: block; font-size: 10px }
+.incident-day-item p { margin: 5px 0; color: #94a3b8; font-size: 9px; line-height: 1.5 }
+.incident-day-item small { color: #64748b; font-size: 8px }
+.incident-day-item > a { grid-column: 2; display: inline-flex; align-items: center; gap: 5px; width: fit-content; text-decoration: none }
+.incident-day-item .ui-icon { width: 13px; height: 13px }
+.privacy-notice, .emergency-notice { display: flex; gap: 8px; align-items: flex-start; padding: 11px; border-radius: 10px; font-size: 9px; line-height: 1.55 }
+.privacy-notice { border: 1px solid rgba(6,182,212,.22); background: rgba(6,182,212,.07); color: #bae6fd }
+.emergency-notice { border: 1px solid rgba(239,68,68,.25); background: rgba(239,68,68,.08); color: #fecaca }
+.privacy-notice .ui-icon, .emergency-notice .ui-icon { flex: 0 0 auto; width: 16px; height: 16px }
+.check-grid { display: grid; gap: 8px; margin: 12px 0 }
+.check-grid label { padding: 11px; border: 1px solid var(--line); border-radius: 10px; background: #080f1b; color: #cbd5e1; font-size: 9px }
+.check-grid input, .consent-check input { accent-color: #f59e0b }
+.consent-check { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid rgba(16,185,129,.2); border-radius: 11px; background: rgba(16,185,129,.06); cursor: pointer }
+.consent-check input { margin-top: 3px }
+.consent-check strong, .consent-check small { display: block }
+.consent-check strong { font-size: 10px }
+.consent-check small { margin-top: 4px; color: #7f8da2; font-size: 8px; line-height: 1.45 }
+.gps-panel { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; margin-top: 13px; border: 1px solid rgba(6,182,212,.22); border-radius: 11px; background: rgba(6,182,212,.055) }
+.gps-panel > div { display: flex; align-items: center; gap: 9px; min-width: 0 }
+.gps-panel .ui-icon { flex: 0 0 auto; color: #67e8f9 }
+.gps-panel strong, .gps-panel small { display: block }
+.gps-panel strong { font-size: 10px }
+.gps-panel small { overflow: hidden; max-width: 180px; margin-top: 3px; color: #7f8da2; font-size: 8px; white-space: nowrap; text-overflow: ellipsis }
+.gps-panel .btn { flex: 0 0 auto; padding-inline: 12px }
+.wa-review { overflow: auto; max-height: 42vh; padding: 13px; border: 1px solid var(--line); border-radius: 11px; background: #050b14; color: #cbd5e1; font: 10px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace; white-space: pre-wrap }
+
 @media (min-width: 760px) {
   .shell { padding: 0 }
   .desktop-side { display: none !important }
@@ -467,6 +541,11 @@ footer { padding: 28px 12px 8px; color: #94a3b8; font-size: 11px; text-align: ce
   .quick-kpi-grid { grid-template-columns: repeat(4,minmax(0,1fr)) }
   .realcount-charts { grid-template-columns: repeat(2,minmax(0,1fr)) }
   .tps-toolbar { grid-template-columns: 1fr 1fr 1.2fr }
+  .mobilization-hero { grid-template-columns: 1fr auto; align-items: center; padding: 29px }
+  .mobilization-kpis { grid-template-columns: repeat(4,minmax(0,1fr)) }
+  .assistance-toolbar { grid-template-columns: 1fr 1fr 1.2fr }
+  .mobilization-actions { grid-template-columns: repeat(2,minmax(0,1fr)) }
+  .check-grid { grid-template-columns: repeat(2,1fr) }
   .modal-backdrop { place-items: center; padding: 24px }
   .modal { width: min(640px,100%); max-height: 90vh; padding: 22px; border-radius: 20px }
   .modal-head { top: -22px }
@@ -484,6 +563,10 @@ footer { padding: 28px 12px 8px; color: #94a3b8; font-size: 11px; text-align: ce
 }
 
 @media (max-width: 420px) {
+  .hamburger-button { display: grid !important; z-index: 2; width: 42px; height: 42px; color: #67e8f9 }
+  .topbar { gap: 7px; padding-right: 9px; padding-left: 9px }
+  .top-profile .avatar { display: none }
+  .topbar-title strong { max-width: 35vw }
   .classification { grid-template-columns: 112px 1fr; gap: 11px }
   .ring { width: 108px; height: 108px }
   .metric-card { min-height: 139px; padding: 14px }
