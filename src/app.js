@@ -11,6 +11,8 @@ const supabase = configured ? createClient(SUPABASE_URL, SUPABASE_KEY, {
 }) : null
 
 const app = document.querySelector('#app')
+const CAMPAIGN_TARGET = 45000
+const TOTAL_DPT = 78500
 const state = {
   session: null, profile: null, page: 'dashboard', busy: false, realtime: null,
   voters: [], activities: [], reports: [], commands: [], opponents: [], profiles: [], teams: [], notifications: [],
@@ -22,11 +24,30 @@ const rupiah = n => new Intl.NumberFormat('id-ID').format(Number(n || 0))
 const dateId = value => value ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(new Date(value)) : '-'
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
 const initials = name => String(name || 'U').split(/\s+/).slice(0, 2).map(x => x[0]).join('').toUpperCase()
-const title = s => ({ dashboard: 'Dashboard', voters: 'Data Pemilih', field: 'Kinerja Lapangan', commands: 'Komando', more: 'Menu Lainnya' }[s] || 'Dashboard')
+const title = s => ({ dashboard: 'Dasbor Komando', voters: 'Data Pemilih', field: 'Kegiatan Lapangan', commands: 'AI Strategy Advisor', more: 'Menu Utama' }[s] || 'Dasbor Komando')
 const roleName = r => ({ admin: 'Admin', owner: 'Owner', team: 'Tim Pemenangan' }[r] || r)
 const voterStatus = s => ({ support: 'Siap Bergabung', swing: 'Swing Voter', refuse: 'Belum Bersedia', unknown: 'Belum Dipetakan' }[s] || s)
 const statusChip = s => ({ support: 'ok', swing: 'warn', refuse: 'bad', unknown: 'info', active: 'ok', pending: 'warn', rejected: 'bad', done: 'ok', in_progress: 'info', planned: 'warn', urgent: 'bad' }[s] || 'info')
 const can = (...roles) => state.profile && roles.includes(state.profile.role)
+const icon = (name, cls = '') => {
+  const paths = {
+    dashboard: '<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
+    users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+    clipboard: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M9 10h6M9 14h6M9 18h4"/>',
+    sparkle: '<path d="m12 3-1.4 4.1L6.5 8.5l4.1 1.4L12 14l1.4-4.1 4.1-1.4-4.1-1.4L12 3Z"/><path d="m19 14-.8 2.2L16 17l2.2.8L19 20l.8-2.2L22 17l-2.2-.8L19 14ZM5 14l-.7 1.8-1.8.7 1.8.7L5 19l.7-1.8 1.8-.7-1.8-.7L5 14Z"/>',
+    menu: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+    bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    help: '<circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 1 1 3.6 2.1c-.9.5-1.4 1-1.4 2M12 17h.01"/>',
+    shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>',
+    database: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/>',
+    send: '<path d="m22 2-7 20-4-9-9-4 20-7Z"/><path d="M22 2 11 13"/>',
+    map: '<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/><path d="M9 3v15M15 6v15"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    refresh: '<path d="M20 6v5h-5M4 18v-5h5"/><path d="M18.5 9A7 7 0 0 0 6.2 6.2L4 9m16 6-2.2 2.8A7 7 0 0 1 5.5 15"/>'
+  }
+  return `<svg class="ui-icon ${cls}" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || paths.sparkle}</svg>`
+}
 
 function toast(message, type = '') {
   let stack = document.querySelector('.toast-stack')
@@ -104,13 +125,13 @@ let reloadTimer
 function debounceReload() { clearTimeout(reloadTimer); reloadTimer = setTimeout(async () => { try { await loadAll(true); renderPage(); updateBadge() } catch { /* transient realtime refresh */ } }, 350) }
 
 function navButtons(cls = '') {
-  const items = [['dashboard', '⌂', 'Beranda'], ['voters', '♙', 'Pemilih'], ['field', '◫', 'Lapangan'], ['commands', '⚑', 'Komando'], ['more', '☰', 'Lainnya']]
-  return items.map(([id, icon, label]) => `<button class="nav-btn ${cls} ${state.page === id ? 'active' : ''}" data-page="${id}"><span>${icon}</span>${label}</button>`).join('')
+  const items = [['dashboard', 'dashboard', 'Dasbor'], ['voters', 'users', 'Pemilih'], ['field', 'clipboard', 'Kegiatan'], ['commands', 'sparkle', 'AI Advisor'], ['more', 'menu', 'Menu']]
+  return items.map(([id, iconName, label]) => `<button class="nav-btn ${cls} ${state.page === id ? 'active' : ''}" data-page="${id}">${icon(iconName)}<span>${label}</span></button>`).join('')
 }
 
 function renderShell() {
-  app.innerHTML = `<div class="shell"><aside class="desktop-side"><div class="side-brand"><span class="brand-mark">P</span><div><strong>Pantauan</strong><small>Pemenangan Kandidat</small></div></div><nav class="side-nav">${navButtons()}</nav><div class="side-status"><i></i><div><strong>Sistem aktif</strong><small>Sinkronisasi real-time</small></div></div><div class="side-user"><div class="avatar">${initials(state.profile.full_name)}</div><div><strong>${esc(state.profile.full_name)}</strong><small>${esc(roleName(state.profile.role))}</small></div></div></aside>
-    <header class="topbar"><div class="mobile-brand"><span class="brand-mark">P</span></div><div class="topbar-title"><strong>${esc(title(state.page))}</strong><small>${esc(roleName(state.profile.role))} · Data real-time</small></div><button class="icon-btn" data-action="notifications" aria-label="Notifikasi">♢<b class="badge ${unreadCount() ? '' : 'hidden'}" id="notif-badge">${unreadCount()}</b></button><div class="top-user"><div class="avatar">${initials(state.profile.full_name)}</div><div><strong>${esc(state.profile.full_name)}</strong><small>${esc(roleName(state.profile.role))}</small></div></div></header>
+  app.innerHTML = `<div class="shell"><aside class="desktop-side"><div class="side-brand"><span class="brand-mark">C</span><div><strong>Command Center</strong><small>Pantauan Pemenangan</small></div></div><nav class="side-nav">${navButtons()}</nav><div class="side-status"><i></i><div><strong>Realtime tersambung</strong><small>Database & lapangan aktif</small></div></div><div class="side-user"><div class="avatar">${initials(state.profile.full_name)}</div><div><strong>${esc(state.profile.full_name)}</strong><small>${esc(roleName(state.profile.role))}</small></div></div></aside>
+    <header class="topbar"><div class="top-profile"><div class="avatar">${initials(state.profile.full_name)}</div><div class="topbar-title"><strong>${esc(state.profile.full_name)}</strong><small>CANDIDATE COMMAND CENTER V2.0</small></div></div><div class="top-live"><i></i> REAL-TIME</div><button class="icon-btn bell-button" data-action="notifications" aria-label="Notifikasi">${icon('bell')}<b class="badge ${unreadCount() ? '' : 'hidden'}" id="notif-badge">${unreadCount()}</b></button></header>
     <main class="main layout" id="page"></main><button class="fab no-print" id="fab" data-action="add" aria-label="Tambah data">＋</button>
     <nav class="bottom-nav">${navButtons()}</nav><footer>BBR @ SYNERGY smart system</footer></div>`
   renderPage()
@@ -124,20 +145,58 @@ function renderPage() {
   page.innerHTML = ({ dashboard: dashboardPage, voters: votersPage, field: fieldPage, commands: commandsPage, more: morePage }[state.page] || dashboardPage)()
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.page === state.page))
   const fab = document.querySelector('#fab'); if (fab) fab.classList.toggle('hidden', !['voters', 'field', 'commands'].includes(state.page) || (state.page === 'commands' && !can('admin', 'owner')))
-  const top = document.querySelector('.topbar-title strong'); if (top) top.textContent = title(state.page)
 }
 
 function dashboardPage() {
   const counts = Object.fromEntries(['support', 'swing', 'refuse', 'unknown'].map(s => [s, state.voters.filter(v => v.preference === s).length]))
-  const total = state.voters.length || 1, pct = Math.round(counts.support / total * 100)
+  const total = state.voters.length || 1, pct = Math.min(100, Math.round(counts.support / CAMPAIGN_TARGET * 100))
   const done = state.activities.filter(a => a.status === 'done').length
   const fieldPct = state.activities.length ? Math.round(done / state.activities.length * 100) : 0
-  return `<section class="dashboard-hero"><div><span class="eyebrow">PUSAT KENDALI KAMPANYE</span><h1>Selamat datang, ${esc(state.profile.full_name.split(' ')[0])}</h1><p>Pantau dukungan, pergerakan tim, dan kondisi lapangan dalam satu layar.</p></div><div class="hero-actions"><span class="live-pill"><i></i> Live</span><button class="btn btn-ghost no-print" data-action="refresh">↻ Perbarui</button></div></section>
-    <section class="grid kpi-grid"><article class="card card-pad kpi"><i class="kpi-dot" style="color:var(--ok);background:var(--ok)"></i><small>Siap Bergabung</small><strong>${rupiah(counts.support)}</strong><em>${pct}% dari data terpetakan</em></article><article class="card card-pad kpi"><i class="kpi-dot" style="color:var(--warn);background:var(--warn)"></i><small>Swing Voter</small><strong>${rupiah(counts.swing)}</strong><em>Perlu pendekatan lanjutan</em></article><article class="card card-pad kpi"><i class="kpi-dot" style="color:var(--cyan);background:var(--cyan)"></i><small>Kinerja Selesai</small><strong>${fieldPct}%</strong><em>${done} dari ${state.activities.length} tugas</em></article><article class="card card-pad kpi"><i class="kpi-dot" style="color:var(--primary);background:var(--primary)"></i><small>Laporan Hari Ini</small><strong>${state.reports.filter(r => r.report_date === today()).length}</strong><em>${state.reports.length} total laporan</em></article></section>
-    <div class="section-title"><h2>Peta Dukungan</h2><button class="link" data-page="voters">Lihat data</button></div><section class="card chart-card"><div class="ring-row"><div class="ring" style="background:conic-gradient(var(--ok) 0 ${counts.support / total * 100}%,var(--warn) 0 ${(counts.support + counts.swing) / total * 100}%,var(--bad) 0 ${(counts.support + counts.swing + counts.refuse) / total * 100}%,var(--cyan) 0)"><strong>${state.voters.length}</strong></div><div class="legend">${[['support', 'var(--ok)'], ['swing', 'var(--warn)'], ['refuse', 'var(--bad)'], ['unknown', 'var(--cyan)']].map(([s, c]) => `<div><span style="--c:${c}">${voterStatus(s)}</span><b>${counts[s]}</b></div>`).join('')}</div></div></section>
-    <div class="section-title"><h2>Perbandingan Lapangan</h2></div><section class="card chart-card">${opponentChart()}</section>
-    ${can('admin', 'owner') ? `<div class="section-title"><h2>Asisten Strategi</h2></div><section class="card card-pad"><div class="list-item"><span style="font-size:27px">✦</span><div class="list-main"><strong>Analisis berbasis data terkini</strong><p>${esc(advisorText(counts, fieldPct))}</p></div></div></section>` : ''}
-    <div class="section-title"><h2>Aktivitas Terbaru</h2></div><section class="list">${state.reports.slice(0, 4).map(reportItem).join('') || empty('Belum ada laporan lapangan.')}</section>`
+  return `<section class="command-banner"><div class="command-copy"><span class="eyebrow">CANDIDATE COMMAND CENTER V2.0</span><h1>${esc(state.profile.full_name)}</h1><p><strong>${rupiah(CAMPAIGN_TARGET)} Suara</strong> dari Total DPT ${rupiah(TOTAL_DPT)}</p></div><div class="hero-actions"><button class="btn action-amber" data-action="add-voter">${icon('plus')} Input Pemilih</button><button class="btn action-cyan" data-action="add-report">${icon('clipboard')} Lapor Kegiatan</button></div></section>
+    <section class="card target-card"><div class="card-heading"><div><span>CAPAIAN RIIL TARGET SUARA</span><small>Data pendukung tervalidasi</small></div><b>${rupiah(counts.support)} / ${rupiah(CAMPAIGN_TARGET)} <em>(${pct}%)</em></b></div><div class="target-track"><i style="width:${Math.max(.4, pct)}%"></i></div></section>
+    <section class="bento-grid metric-grid">
+      ${metricCard('support', 'PENDUKUNG (SIAP)', counts.support, 'Suara siap dikawal', 'user')}
+      ${metricCard('swing', 'SWING VOTER', counts.swing, 'Perlu pendekatan taktis', 'help')}
+      ${metricCard('refuse', 'PENOLAK (LAWAN)', counts.refuse, 'Terdata di basis lawan', 'shield')}
+      ${metricCard('total', 'TOTAL PEMILIH TERDATA', state.voters.length, `Dari total DPT Wilayah`, 'database')}
+    </section>
+    <section class="bento-grid analytics-grid">
+      <article class="card chart-card"><div class="card-heading"><div><span>KLASIFIKASI SUARA</span><small>Komposisi data terpetakan</small></div><button class="mini-action" data-page="voters">Detail</button></div>${classificationChart(counts, total)}</article>
+      <article class="card chart-card"><div class="card-heading"><div><span>SEBARAN PEMILIH PER WILAYAH</span><small>Basis data desa / kelurahan</small></div>${icon('map')}</div>${territoryChart()}</article>
+    </section>
+    <section class="card ai-strategy-card"><div class="ai-orb">${icon('sparkle')}</div><div class="ai-copy"><span class="command-badge">${icon('sparkle')} COMMAND PANEL</span><h2>AI Strategy Assistant</h2><p>Konsultasi situasi lapangan, respon taktis pergerakan lawan, dan otomatisasi pembuatan pesan komando WhatsApp ke Korlap Desa.</p><div class="advisor-insight">${esc(advisorText(counts, fieldPct))}</div><div class="hero-actions"><button class="btn action-amber" data-action="send-command">${icon('send')} Kirim Perintah ke Tim</button><button class="btn btn-ghost" data-action="check-ai-data">${icon('database')} Cek Data Dasar AI</button></div></div></section>
+    <section class="bento-grid reports-grid"><article class="card report-panel"><div class="card-heading"><div><span>LAPORAN KEJADIAN PENTING</span><small>Insiden yang perlu tindak lanjut</small></div><b class="alert-count">${state.reports.filter(r => r.report_type === 'incident').length}</b></div><div class="compact-list">${incidentItems()}</div></article><article class="card report-panel"><div class="card-heading"><div><span>LAPORAN LAPANGAN TERAKHIR</span><small>Pembaruan kegiatan terkini</small></div><button class="mini-action" data-page="field">Semua</button></div><div class="compact-list">${latestFieldItems()}</div></article></section>`
+}
+
+function metricCard(type, label, value, description, iconName) {
+  return `<article class="card metric-card ${type}"><div class="metric-icon">${icon(iconName)}</div><span>${label}</span><strong>${rupiah(value)}</strong><small>${esc(description)}</small></article>`
+}
+
+function classificationChart(counts, total) {
+  const known = Math.max(1, counts.support + counts.swing + counts.refuse)
+  const supportPct = counts.support / known * 100, swingPct = counts.swing / known * 100, refusePct = counts.refuse / known * 100
+  return `<div class="classification"><div class="ring" style="background:conic-gradient(var(--ok) 0 ${supportPct}%,var(--amber) 0 ${supportPct + swingPct}%,var(--bad) 0 ${supportPct + swingPct + refusePct}%,#263244 0)"><div><strong>${Math.round(counts.support / total * 100)}%</strong><small>Dukungan</small></div></div><div class="legend">${[['Pendukung', counts.support, 'var(--ok)'], ['Swing Voter', counts.swing, 'var(--amber)'], ['Penolak', counts.refuse, 'var(--bad)']].map(([label, val, color]) => `<div><span style="--c:${color}">${label}</span><b>${rupiah(val)}</b></div>`).join('')}</div></div>`
+}
+
+function territoryChart() {
+  const areas = new Map()
+  for (const voter of state.voters) { const area = voter.village?.trim() || 'Belum ditentukan'; areas.set(area, (areas.get(area) || 0) + 1) }
+  const rows = [...areas.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6)
+  const display = rows.length ? rows : [['Desa Sukamaju', 0], ['Desa Kencana', 0], ['Desa Murni', 0], ['Desa Sejahtera', 0]]
+  const max = Math.max(1, ...display.map(x => x[1]))
+  return `<div class="territory-bars">${display.map(([name, val]) => `<div class="territory-row"><div><span>${esc(name)}</span><b>${rupiah(val)}</b></div><div class="territory-track"><i style="width:${val ? Math.max(7, val / max * 100) : 3}%"></i></div></div>`).join('')}</div>`
+}
+
+function incidentItems() {
+  const incidents = state.reports.filter(r => r.report_type === 'incident').slice(0, 4)
+  if (!incidents.length) return empty('Belum ada kejadian penting. Kondisi lapangan terkendali.')
+  return incidents.map((r, index) => `<article class="incident-item"><div class="severity ${index === 0 ? 'high' : 'medium'}">${index === 0 ? 'TINGGI' : 'SEDANG'}</div><div><strong>${esc(r.title)}</strong><p>${esc(r.summary)}</p><small>${esc(r.teams?.name || 'Wilayah belum dicatat')} · ${esc(r.profiles?.full_name || 'Tim lapangan')}</small></div></article>`).join('')
+}
+
+function latestFieldItems() {
+  const reports = state.reports.filter(r => r.report_type !== 'incident').slice(0, 4)
+  if (!reports.length) return empty('Belum ada laporan kegiatan lapangan.')
+  return reports.map((r, index) => { const related = state.activities[index]; const progress = related?.progress ?? 100; return `<article class="field-report-item"><button class="report-thumb ${r.media_path ? 'has-media' : ''}" ${r.media_path ? `data-action="open-media" data-path="${esc(r.media_path)}"` : 'disabled'} aria-label="Bukti kegiatan">${icon('clipboard')}</button><div class="field-report-copy"><div><span class="activity-type">${esc(String(r.title || r.report_type).replaceAll(' ', '_').toUpperCase())}</span><time>${dateId(r.created_at)}</time></div><strong>${esc(r.summary)}</strong><div class="report-progress"><i style="width:${Math.min(100, progress)}%"></i></div><small>${esc(r.profiles?.full_name || 'Tim lapangan')} · ${progress}% capaian</small></div></article>` }).join('')
 }
 
 function opponentChart() {
@@ -179,7 +238,10 @@ function reportItem(r) {
 }
 
 function commandsPage() {
-  return `<div class="page-head"><div><h1>Komando Tim</h1><p>Instruksi owner/admin tersampaikan real-time.</p></div></div><section class="list">${state.commands.map(c => `<article class="list-item"><span style="font-size:25px">${c.priority === 'urgent' ? '⚠' : '⚑'}</span><div class="list-main"><strong>${esc(c.title)}</strong><p>${esc(c.message)}</p><div class="meta"><span class="chip ${statusChip(c.priority)}">${esc(c.priority)}</span><span class="chip">${dateId(c.created_at)}</span>${c.whatsapp_message ? `<a class="chip" href="https://wa.me/?text=${encodeURIComponent(c.whatsapp_message)}" target="_blank" rel="noopener">Bagikan WhatsApp</a>` : ''}</div></div></article>`).join('') || empty('Belum ada komando.')}</section>`
+  const counts = Object.fromEntries(['support', 'swing', 'refuse'].map(s => [s, state.voters.filter(v => v.preference === s).length]))
+  const done = state.activities.filter(a => a.status === 'done').length
+  const fieldPct = state.activities.length ? Math.round(done / state.activities.length * 100) : 0
+  return `<section class="page-head command-page-head"><div><span class="eyebrow">INTELLIGENCE & COMMAND</span><h1>AI Strategy Advisor</h1><p>Analisis otomatis berdasarkan data pemilih, laporan, dan kinerja lapangan.</p></div>${can('admin', 'owner') ? `<button class="btn action-amber" data-action="send-command">${icon('send')} Buat Komando</button>` : ''}</section><section class="card ai-strategy-card standalone"><div class="ai-orb">${icon('sparkle')}</div><div class="ai-copy"><span class="command-badge">${icon('sparkle')} ANALISIS TERKINI</span><h2>Rekomendasi Taktis</h2><p>${esc(advisorText(counts, fieldPct))}</p><div class="hero-actions"><button class="btn action-cyan" data-action="check-ai-data">${icon('database')} Tinjau Data Dasar</button></div></div></section><div class="section-title"><h2>Riwayat Komando Tim</h2></div><section class="list command-list">${state.commands.map(c => `<article class="list-item"><span class="command-symbol">${c.priority === 'urgent' ? '!' : '↗'}</span><div class="list-main"><strong>${esc(c.title)}</strong><p>${esc(c.message)}</p><div class="meta"><span class="chip ${statusChip(c.priority)}">${esc(c.priority)}</span><span class="chip">${dateId(c.created_at)}</span>${c.whatsapp_message ? `<a class="chip whatsapp" href="https://wa.me/?text=${encodeURIComponent(c.whatsapp_message)}" target="_blank" rel="noopener">Bagikan WhatsApp</a>` : ''}</div></div></article>`).join('') || empty('Belum ada komando. Buat arahan pertama untuk tim lapangan.')}</section>`
 }
 
 function morePage() {
@@ -233,7 +295,7 @@ async function save(table, payload, id, button) {
 document.addEventListener('click', async e => {
   const el = e.target.closest('[data-action],[data-page],[data-auth-tab]'); if (!el) return
   if (el.dataset.authTab) return authScreen(el.dataset.authTab)
-  if (el.dataset.page) { state.page = el.dataset.page; renderPage(); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
+  if (el.dataset.page) { state.page = el.dataset.page; el.closest('.modal-backdrop')?.remove(); renderPage(); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
   const action = el.dataset.action
   try {
     if (action === 'close-modal') el.closest('.modal-backdrop')?.remove()
@@ -241,6 +303,13 @@ document.addEventListener('click', async e => {
     if (action === 'refresh') { await loadAll(true); renderPage(); toast('Data sudah diperbarui.') }
     if (action === 'print') window.print()
     if (action === 'export-voters') exportCsv()
+    if (action === 'add-voter') voterModal()
+    if (action === 'add-report') reportModal()
+    if (action === 'send-command') { if (can('admin', 'owner')) commandModal(); else toast('Pembuatan komando hanya untuk Owner atau Admin.', 'error') }
+    if (action === 'check-ai-data') {
+      const counts = Object.fromEntries(['support', 'swing', 'refuse', 'unknown'].map(s => [s, state.voters.filter(v => v.preference === s).length]))
+      openModal('Data Dasar AI Strategy', `<section class="ai-data-grid"><div><span>Total pemilih</span><strong>${rupiah(state.voters.length)}</strong></div><div><span>Pendukung</span><strong>${rupiah(counts.support)}</strong></div><div><span>Swing voter</span><strong>${rupiah(counts.swing)}</strong></div><div><span>Laporan lapangan</span><strong>${rupiah(state.reports.length)}</strong></div></section><div class="info-box">Analisis menggunakan data yang diizinkan oleh hak akses akun dan RLS Supabase. Data pribadi tidak dikirim ke layanan AI eksternal.</div><button class="btn action-cyan btn-block" data-page="voters">Buka Data Pemilih</button>`)
+    }
     if (action === 'add') ({ voters: () => voterModal(), field: () => reportModal(), commands: commandModal }[state.page]?.())
     if (action === 'edit-voter') voterModal(state.voters.find(v => v.id === el.dataset.id))
     if (action === 'delete-voter' && confirm('Hapus data pemilih ini? Tindakan tercatat dalam audit.')) { const { error } = await supabase.from('voters').delete().eq('id', el.dataset.id); if (error) throw error; el.closest('.modal-backdrop')?.remove(); await loadAll(true); renderPage(); toast('Data dihapus.') }
